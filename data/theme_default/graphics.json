@@ -1,0 +1,24 @@
+"color_block:FrameStyle":
+{
+	padding = 3
+	backgroundPainter = "panel"
+}
+"color_inspect_block:FrameStyle":
+{
+	padding = 3
+	backgroundPainter = "panel"
+}
+
+"selector_container:FrameStyle":
+{
+	padding = 8
+}
+"selector:CursorStyle":
+{
+	expand = 8
+	painter = "selector-16"
+}
+
+"selector-16:painter": { __ = "imgset", imgset = "selector-16" }
+
+"selector-16:imgset": { images = [{ path = "images/selector-16.png" }] }

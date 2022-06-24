@@ -1,0 +1,144 @@
+"background:color" = "b:37;255"
+"foreground:color" = "b:255"
+"clear:color" = "b:37;255"
+
+":FontSettings" = {}
+"header:FontSettings" = { weight = "bold" }
+
+"outline:imgset": { images = [{ path = "images/outline.png", edge = 4 }] }
+
+"label:FrameStyle":
+{
+	padding = 5
+}
+"header:FrameStyle":
+{
+	padding = 5
+	font = "header"
+}
+
+"group_box:FrameStyle":
+{
+	padding = 6
+	backgroundPainter = "panel"
+}
+
+"panel:painter": { __ = "imgset", imgset = "panel" }
+"panel:imgset": { images = [{ path = "images/panel.png", edge = 5 }] }
+
+"listbox:FrameStyle":
+{
+	padding = 5
+	backgroundPainter = "insetbox"
+}
+"checkerboard:FrameStyle":
+{
+	backgroundPainter = "checkerboard"
+}
+
+"split_pane_separator_horizontal:SeparatorLineStyle":
+{
+	size = 8
+	backgroundPainter = "button"
+}
+"split_pane_separator_vertical:SeparatorLineStyle":
+{
+	size = 8
+	backgroundPainter = "button"
+}
+
+"progress_bar:ProgressBarStyle":
+{
+	padding = 5
+	fillMargin = 2
+	backgroundPainter = "insetbox"
+	fillPainter = "outsetbox"
+}
+
+"scrollbar_vertical:ScrollbarStyle":
+{
+	width = 20
+	trackFillMargin = 2
+	thumbMinLength = 16
+	trackPainter = "insetbox"
+	thumbPainter = "button"
+}
+
+"textbox:FrameStyle":
+{
+	padding = 5
+	backgroundPainter = "textbox"
+}
+
+"textbox:painter":
+{
+	__ = "layer"
+	painters:
+	[
+		{
+			__ = "select_first"
+			painters:
+			[
+				{
+					condition = ["disabled"]
+					painter = { __ = "imgset", imgset = "textbox.disabled" }
+				}
+				{
+					painter = { __ = "imgset", imgset = "textbox.normal" }
+				}
+			]
+		}
+		{
+			__ = "conditional"
+			condition = ["focused"]
+			painter = { __ = "imgset", imgset = "outline", "shrink": -1 }
+		}
+	]
+}
+
+"insetbox:painter":
+{
+	__ = "select_first"
+	painters:
+	[
+		{
+			condition = ["disabled"]
+			painter = { __ = "imgset", imgset = "textbox.disabled" }
+		}
+		{
+			painter = { __ = "imgset", imgset = "textbox.normal" }
+		}
+	]
+}
+
+"outsetbox:painter":
+{
+	__ = "select_first"
+	painters:
+	[
+		{
+			condition = ["disabled"]
+			painter = { __ = "imgset", imgset = "button.disabled" }
+		}
+		{
+			painter = { __ = "imgset", imgset = "button.normal" }
+		}
+	]
+}
+
+"proc_graph_node:FrameStyle":
+{
+	padding = 5
+	backgroundPainter = "tab_panel"
+}
+
+"textbox.normal:imgset": { images = [{ path = "images/textbox-normal.png", edge = 5 }] }
+"textbox.disabled:imgset": { images = [{ path = "images/textbox-disabled.png", edge = 5 }] }
+
+"checkerboard:painter": { __ = "imgset", imgset = "bgr-checkerboard" }
+"bgr-checkerboard:imgset":
+{
+	type = "pattern"
+	size = 16
+	images = [{ path = "images/bgr-checkerboard.png" }]
+}

@@ -1,0 +1,27 @@
+
+= Binary Data Analysis Tool
+
+This software is designed to simplify the process of investigating an unknown binary file.
+
+== Features
+
+* Hex viewer
+** *Automatic likely number/ASCII highlighting* - no longer need to stare at a wall of characters looking for 3F8s etc.
+** *Visually connecting with known markers or structures* - a direct line from known data to its description
+** *Custom number (int32) range highlighting* - a way to look for known 4-byte identifiers
+* Markers
+** *Support for all basic data types* ([u]int8/16/32/64, float32/64, char)
+** *Packed, stride-based or mixed-mode (2D) array support* - can mark vec3s in a struct
+** *Support for ignoring beginning/end flag bits* - for handling offset + flags packing
+** *Basic analysis (min/max/GCD for both values and deltas)* - allows to easily differentiate offsets/indices and match them to data based on the indexed range
+* Structures
+** Serialized or offset-based
+** Built-in or struct field types
+** Fixed, count-based or size-based array fields
+** *Automatable substructure instance creation* - once the format is well understood, the structures don't need to be created by hand
+* Query/offset expression language
+* Image visualization
+** Uncompressed formats: RGBA8, RGBX8, RGBo8, G8, G1, RGB5A1
+** Palette formats: 8BPP_RGBA8, 4BPP_RGB5A1, 4BPP_RGBo8
+** GPU formats: DXT1, DXT3
+* Mesh visualization

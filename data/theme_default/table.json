@@ -1,0 +1,38 @@
+"table_frame:FrameStyle":
+{
+	padding = 5
+	backgroundPainter = "insetbox"
+}
+"table:TableStyle":
+{
+	cellPaddingV = 1
+	cellPaddingH = 2
+	cellBackgroundPainter = "table_cell"
+	rowHeaderPaddingV = 1
+	rowHeaderPaddingH = 2
+	rowHeaderBackgroundPainter = "table_header"
+	colHeaderPaddingV = 1
+	colHeaderPaddingH = 2
+	colHeaderBackgroundPainter = "table_header"
+}
+
+"table_cell:painter":
+{
+	__ = "select_first"
+	painters:
+	[
+		{ condition = ["checked"], painter = { __ = "color_fill",
+			borderWidth = 1, color = "f:0.45;0.05;0", borderColor = "f:0.45;0.1;0" } }
+		{ condition = ["hover"], painter = { __ = "color_fill",
+			borderWidth = 1, color = "f:0.25;0.05;0", borderColor = "f:0.25;0.1;0.05" } }
+		{ painter = { __ = "color_fill",
+			borderWidth = 1, color = "f:0.05", borderColor = "f:0.15" } }
+	]
+}
+"table_header:painter":
+{
+	__ = "color_fill"
+	color = "f:0.1;1"
+	borderColor = "f:0.2;1"
+	borderWidth = 1
+}

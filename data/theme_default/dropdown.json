@@ -1,0 +1,31 @@
+"dropdown_button:FrameStyle":
+{
+	padding = 5
+	paddingRight = 20
+	backgroundPainter = "dropdown_button"
+}
+
+"dropdown_button:painter":
+{
+	__ = "layer", painters =
+	[
+		"button",
+		{
+			__ = "point_anchored_placement_rect_mod"
+			anchor = { x = 1, y = 0.5 }
+			pivot = { x = 1, y = 0.5 }
+			size = { x = 10, y = 10 }
+			bias = { x = -5, y = 1 }
+			painter = "dropdown_button_icon"
+		}
+	]
+}
+"dropdown_button_icon:painter":
+{
+	__ = "imgset", imgset = "dropdown-icon"
+}
+
+"dropdown-icon:imgset":
+{
+	images = [{ path = "images/dropdown-icon.png" }]
+}

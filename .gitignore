@@ -1,0 +1,23 @@
+# projects
+.vs
+*.vcxproj.user
+
+# build output
+*.log
+*.pch
+*.obj
+*.ilk
+*.idb
+*.pdb
+*.iobj
+*.ipdb
+*.exe
+*.tlog
+*.lib
+*.dll
+__pycache__
+/build
+/int
+
+# data
+/projects
