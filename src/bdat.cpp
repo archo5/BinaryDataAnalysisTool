@@ -69,6 +69,8 @@ struct MainWindow : ui::NativeMainWindow
 		fileSel.defaultExt = "bdaw";
 		fileSel.filters.push_back({ "Binary Data Analysis Tool workspace files (*.bdaw)", "*.bdaw" });
 
+		wsFileSel.filters.push_back({ "Any file", "*" });
+
 		SetInnerSize(1200, 800);
 		UpdateTitle();
 	}
@@ -145,6 +147,14 @@ struct MainWindow : ui::NativeMainWindow
 			{
 				workspace.curOpenedFile = tpFiles.GetCurrentTabUID(0);
 			};
+
+			auto& w = ui::PushNoAppend<ui::StackLTRLayoutElement>();
+			if (ui::imm::Button("+"))
+			{
+				OpenNewWorkspaceFile();
+			}
+			ui::Pop();
+			tpFiles.SetTabBarExtension(&w);
 
 			nf = 0;
 			for (auto* of : workspace.openedFiles)
@@ -232,6 +242,7 @@ struct MainWindow : ui::NativeMainWindow
 	}
 	void OnNew()
 	{
+		workspace.Clear();
 		curWorkspacePath.clear();
 		UpdateTitle();
 	}
@@ -266,8 +277,40 @@ struct MainWindow : ui::NativeMainWindow
 		OnClose();
 	}
 
+	void OpenNewWorkspaceFile()
+	{
+		if (wsFileSel.Show(false))
+		{
+			auto path = wsFileSel.currentDir + "/" + wsFileSel.selectedFiles[0];
+			for (auto*& of : workspace.openedFiles)
+			{
+				if (of->ddFile->path == path)
+				{
+					workspace.curOpenedFile = &of - &workspace.openedFiles.front();
+					Rebuild();
+					return;
+				}
+			}
+
+			auto* F = workspace.desc.CreateNewFile();
+			F->name = ui::to_string(ui::StringView(path).after_last("/"));
+			F->path = path;
+			F->dataSource = new FileDataSource(path.c_str());
+			F->mdSrc.dataSource = F->dataSource;
+
+			auto* of = new OpenedFile;
+			of->ddFile = F;
+			of->fileID = F->id;
+			workspace.openedFiles.push_back(of);
+			workspace.curOpenedFile = workspace.openedFiles.size() - 1;
+
+			Rebuild();
+		}
+	}
+
 	Workspace workspace;
 	ui::FileSelectionWindow fileSel;
+	ui::FileSelectionWindow wsFileSel;
 	std::string curWorkspacePath;
 
 	FileView* curFileView = nullptr;
