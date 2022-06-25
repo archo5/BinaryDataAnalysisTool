@@ -171,6 +171,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Common.h" />
     <ClInclude Include="DataDesc.h" />
     <ClInclude Include="DataDescStruct.h" />
     <ClInclude Include="ExportScript.h" />

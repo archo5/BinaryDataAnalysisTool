@@ -10,6 +10,7 @@ struct ImageInfo
 	int64_t offPal;
 	uint32_t width;
 	uint32_t height;
+	bool opaque;
 };
 
 size_t GetImageFormatCount();

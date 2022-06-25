@@ -59,6 +59,7 @@ struct AnalysisData : ui::TableDataSource
 struct Marker
 {
 	DataType type;
+	Endianness endianness = Endianness::Little;
 	uint8_t bitstart = 0;
 	uint8_t bitend = 64;
 	bool excludeZeroes = false;
@@ -78,7 +79,7 @@ extern ui::DataCategoryTag DCT_Marker[1];
 extern ui::DataCategoryTag DCT_MarkedItems[1];
 struct MarkerData
 {
-	void AddMarker(DataType dt, uint64_t from, uint64_t to);
+	void AddMarker(DataType dt, Endianness endianness, uint64_t from, uint64_t to);
 
 	void Load(const char* key, NamedTextSerializeReader& r);
 	void Save(const char* key, NamedTextSerializeWriter& w);

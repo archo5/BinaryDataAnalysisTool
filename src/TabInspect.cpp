@@ -17,6 +17,7 @@ void TabInspect::Build()
 		ui::Push<ui::StackTopDownLayoutElement>();
 
 		auto pos = of->hexViewerState.hoverByte;
+		auto endianness = of->hexViewerState.endianness;
 		if (of->hexViewerState.selectionStart != UINT64_MAX)
 			pos = std::min(of->hexViewerState.selectionStart, of->hexViewerState.selectionEnd);
 
@@ -30,21 +31,21 @@ void TabInspect::Build()
 		char txt_uint8[32];
 		ds->GetInt8Text(txt_uint8, 32, pos, false);
 		char txt_int16[32];
-		ds->GetInt16Text(txt_int16, 32, pos, true);
+		ds->GetInt16Text(txt_int16, 32, pos, endianness, true);
 		char txt_uint16[32];
-		ds->GetInt16Text(txt_uint16, 32, pos, false);
+		ds->GetInt16Text(txt_uint16, 32, pos, endianness, false);
 		char txt_int32[32];
-		ds->GetInt32Text(txt_int32, 32, pos, true);
+		ds->GetInt32Text(txt_int32, 32, pos, endianness, true);
 		char txt_uint32[32];
-		ds->GetInt32Text(txt_uint32, 32, pos, false);
+		ds->GetInt32Text(txt_uint32, 32, pos, endianness, false);
 		char txt_int64[32];
-		ds->GetInt64Text(txt_int64, 32, pos, true);
+		ds->GetInt64Text(txt_int64, 32, pos, endianness, true);
 		char txt_uint64[32];
-		ds->GetInt64Text(txt_uint64, 32, pos, false);
+		ds->GetInt64Text(txt_uint64, 32, pos, endianness, false);
 		char txt_float32[32];
-		ds->GetFloat32Text(txt_float32, 32, pos);
+		ds->GetFloat32Text(txt_float32, 32, pos, endianness);
 		char txt_float64[32];
-		ds->GetFloat64Text(txt_float64, 32, pos);
+		ds->GetFloat64Text(txt_float64, 32, pos, endianness);
 
 		ui::imm::PropText("i8", txt_int8);
 		ui::imm::PropText("u8", txt_uint8);

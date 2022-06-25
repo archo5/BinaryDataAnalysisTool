@@ -23,7 +23,7 @@ void IDataSource::GetInt8Text(char* buf, size_t bufsz, uint64_t pos, bool sign)
 	snprintf(buf, bufsz, sign ? "%" PRId8 : "%" PRIu8, v);
 }
 
-void IDataSource::GetInt16Text(char* buf, size_t bufsz, uint64_t pos, bool sign)
+void IDataSource::GetInt16Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness, bool sign)
 {
 	int16_t v;
 	if (Read(pos, sizeof(v), &v) < sizeof(v))
@@ -31,10 +31,11 @@ void IDataSource::GetInt16Text(char* buf, size_t bufsz, uint64_t pos, bool sign)
 		strncpy(buf, "-", bufsz);
 		return;
 	}
+	EndiannessAdjust(v, endianness);
 	snprintf(buf, bufsz, sign ? "%" PRId16 : "%" PRIu16, v);
 }
 
-void IDataSource::GetInt32Text(char* buf, size_t bufsz, uint64_t pos, bool sign)
+void IDataSource::GetInt32Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness, bool sign)
 {
 	int32_t v;
 	if (Read(pos, sizeof(v), &v) < sizeof(v))
@@ -42,10 +43,11 @@ void IDataSource::GetInt32Text(char* buf, size_t bufsz, uint64_t pos, bool sign)
 		strncpy(buf, "-", bufsz);
 		return;
 	}
+	EndiannessAdjust(v, endianness);
 	snprintf(buf, bufsz, sign ? "%" PRId32 : "%" PRIu32, v);
 }
 
-void IDataSource::GetInt64Text(char* buf, size_t bufsz, uint64_t pos, bool sign)
+void IDataSource::GetInt64Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness, bool sign)
 {
 	int64_t v;
 	if (Read(pos, sizeof(v), &v) < sizeof(v))
@@ -53,10 +55,11 @@ void IDataSource::GetInt64Text(char* buf, size_t bufsz, uint64_t pos, bool sign)
 		strncpy(buf, "-", bufsz);
 		return;
 	}
+	EndiannessAdjust(v, endianness);
 	snprintf(buf, bufsz, sign ? "%" PRId64 : "%" PRIu64, v);
 }
 
-void IDataSource::GetFloat32Text(char* buf, size_t bufsz, uint64_t pos)
+void IDataSource::GetFloat32Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness)
 {
 	float v;
 	if (Read(pos, sizeof(v), &v) < sizeof(v))
@@ -64,10 +67,11 @@ void IDataSource::GetFloat32Text(char* buf, size_t bufsz, uint64_t pos)
 		strncpy(buf, "-", bufsz);
 		return;
 	}
+	EndiannessAdjust(v, endianness);
 	snprintf(buf, bufsz, "%g", v);
 }
 
-void IDataSource::GetFloat64Text(char* buf, size_t bufsz, uint64_t pos)
+void IDataSource::GetFloat64Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness)
 {
 	double v;
 	if (Read(pos, sizeof(v), &v) < sizeof(v))
@@ -75,6 +79,7 @@ void IDataSource::GetFloat64Text(char* buf, size_t bufsz, uint64_t pos)
 		strncpy(buf, "-", bufsz);
 		return;
 	}
+	EndiannessAdjust(v, endianness);
 	snprintf(buf, bufsz, "%g", v);
 }
 

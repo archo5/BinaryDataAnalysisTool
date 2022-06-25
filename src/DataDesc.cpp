@@ -596,6 +596,7 @@ void DataDesc::EditImageItems()
 		bool chg = false;
 		chg |= ui::imm::PropEditString("Notes", I.notes.c_str(), [&I](const char* s) { I.notes = s; });
 		chg |= EditImageFormat("Format", I.format);
+		chg |= ui::imm::PropEditBool("Opaque", I.opaque);
 		chg |= ui::imm::PropEditInt("Image offset", I.offImage);
 		chg |= ui::imm::PropEditInt("Palette offset", I.offPalette);
 		chg |= ui::imm::PropEditInt("Width", I.width);
@@ -885,6 +886,7 @@ void DataDesc::Load(const char* key, NamedTextSerializeReader& r)
 		I.width = r.ReadUInt("width");
 		I.height = r.ReadUInt("height");
 		I.format = r.ReadString("format");
+		I.opaque = r.ReadBool("opaque");
 		I.notes = r.ReadString("notes");
 		I.userCreated = r.ReadBool("userCreated");
 		images.push_back(I);
@@ -986,6 +988,7 @@ void DataDesc::Save(const char* key, NamedTextSerializeWriter& w)
 		w.WriteInt("width", I.width);
 		w.WriteInt("height", I.height);
 		w.WriteString("format", I.format);
+		w.WriteBool("opaque", I.opaque);
 		w.WriteString("notes", I.notes);
 		w.WriteBool("userCreated", I.userCreated);
 
@@ -1268,6 +1271,7 @@ enum COLS_DDIMG
 	DDIMG_COL_ImgOff,
 	DDIMG_COL_PalOff,
 	DDIMG_COL_Format,
+	DDIMG_COL_Opaque,
 	DDIMG_COL_Width,
 	DDIMG_COL_Height,
 
@@ -1305,6 +1309,7 @@ std::string DataDescImageSource::GetColName(size_t col)
 	case DDIMG_COL_ImgOff: return "Image Offset";
 	case DDIMG_COL_PalOff: return "Palette Offset";
 	case DDIMG_COL_Format: return "Format";
+	case DDIMG_COL_Opaque: return "Opaque";
 	case DDIMG_COL_Width: return "Width";
 	case DDIMG_COL_Height: return "Height";
 	default: return "???";
@@ -1323,6 +1328,7 @@ std::string DataDescImageSource::GetText(size_t row, size_t col)
 	case DDIMG_COL_ImgOff: return std::to_string(dataDesc->images[_indices[row]].offImage);
 	case DDIMG_COL_PalOff: return std::to_string(dataDesc->images[_indices[row]].offPalette);
 	case DDIMG_COL_Format: return dataDesc->images[_indices[row]].format;
+	case DDIMG_COL_Opaque: return dataDesc->images[_indices[row]].opaque ? "+" : "";
 	case DDIMG_COL_Width: return std::to_string(dataDesc->images[_indices[row]].width);
 	case DDIMG_COL_Height: return std::to_string(dataDesc->images[_indices[row]].height);
 	default: return "???";

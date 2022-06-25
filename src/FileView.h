@@ -1,6 +1,7 @@
 
 #pragma once
 #include "pch.h"
+#include "Common.h"
 
 struct Workspace;
 struct OpenedFile;
@@ -16,7 +17,7 @@ struct FileView : ui::Buildable
 	DDStruct* CreateBlankStruct(int64_t pos);
 	DDStruct* CreateStructFromMarkers(int64_t pos);
 	void CreateImage(int64_t pos, ui::StringView fmt);
-	void GoToOffset(int64_t pos);
+	void GoToOffset(int64_t pos, Endianness endianness);
 
 	Workspace* workspace = nullptr;
 	OpenedFile* of = nullptr;

@@ -55,6 +55,7 @@ struct HexViewerState
 {
 	uint64_t basePos = 0;
 	uint32_t byteWidth = 8;
+	Endianness endianness = Endianness::Little;
 
 	ui::Color4f colorHover{ 1, 1, 1, 0.3f };
 	ui::Color4f colorSelect{ 1, 0.7f, 0.65f, 0.5f };

@@ -1,6 +1,7 @@
 
 #pragma once
 #include "pch.h"
+#include "Common.h"
 
 
 struct IDataSource
@@ -11,11 +12,11 @@ struct IDataSource
 
 	void GetASCIIText(char* buf, size_t bufsz, uint64_t pos);
 	void GetInt8Text(char* buf, size_t bufsz, uint64_t pos, bool sign);
-	void GetInt16Text(char* buf, size_t bufsz, uint64_t pos, bool sign);
-	void GetInt32Text(char* buf, size_t bufsz, uint64_t pos, bool sign);
-	void GetInt64Text(char* buf, size_t bufsz, uint64_t pos, bool sign);
-	void GetFloat32Text(char* buf, size_t bufsz, uint64_t pos);
-	void GetFloat64Text(char* buf, size_t bufsz, uint64_t pos);
+	void GetInt16Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness, bool sign);
+	void GetInt32Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness, bool sign);
+	void GetInt64Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness, bool sign);
+	void GetFloat32Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness);
+	void GetFloat64Text(char* buf, size_t bufsz, uint64_t pos, Endianness endianness);
 };
 
 struct MemoryDataSource : IDataSource

@@ -172,7 +172,7 @@ static bool IsASCII(uint8_t v)
 	return v >= 0x20 && v < 0x7f;
 }
 
-static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint64_t basePos, ByteColors* outColors, uint8_t* bytes, size_t numBytes)
+static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint64_t basePos, Endianness endianness, ByteColors* outColors, uint8_t* bytes, size_t numBytes)
 {
 	for (auto& M : file->markerData.markers)
 	{
@@ -240,6 +240,7 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 			{
 				uint64_t v;
 				memcpy(&v, &bytes[i], 8);
+				EndiannessAdjust(v, endianness);
 				auto fsz = file->dataSource->GetSize();
 				if (v >= fsz * (hs->nearFileSizePercent * 0.01f) && v <= fsz)
 				{
@@ -266,6 +267,7 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 
 			int32_t i32v;
 			memcpy(&i32v, &bytes[i], 4);
+			EndiannessAdjust(i32v, endianness);
 
 			if (!hs->customInt32.empty())
 			{
@@ -291,6 +293,7 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 			{
 				float v;
 				memcpy(&v, &bytes[i], 4);
+				EndiannessAdjust(v, endianness);
 				if ((v >= hs->minFloat32 && v <= hs->maxFloat32) || (v >= -hs->maxFloat32 && v <= -hs->minFloat32))
 				{
 					for (int j = 0; j < 4; j++)
@@ -302,6 +305,7 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 			{
 				uint32_t v;
 				memcpy(&v, &bytes[i], 4);
+				EndiannessAdjust(v, endianness);
 				auto fsz = file->dataSource->GetSize();
 				if (v >= fsz * (hs->nearFileSizePercent * 0.01f) && v <= fsz)
 				{
@@ -333,6 +337,7 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 
 			int16_t v;
 			memcpy(&v, &bytes[i], 2);
+			EndiannessAdjust(v, endianness);
 			if (v >= hs->minInt16 && v <= hs->maxInt16)
 			{
 				outColors[i].hexColor.BlendOver(colorInt32);
@@ -458,7 +463,7 @@ void HexViewer::OnPaint(const ui::UIPaintContext& ctx)
 	float y = GetFinalRect().y0 + fh * 2;
 	float x2 = x + 20 * W + 10;
 
-	Highlight(highlightSettings, dataDesc, file, state->basePos, &bcol[0], buf, sz);
+	Highlight(highlightSettings, dataDesc, file, state->basePos, state->endianness, &bcol[0], buf, sz);
 
 	for (size_t i = 0; i < sz; i++)
 	{

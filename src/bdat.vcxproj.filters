@@ -45,6 +45,7 @@
     <ClInclude Include="ExportScript.h" />
     <ClInclude Include="MeshScript.h" />
     <ClInclude Include="MeshEditor.h" />
+    <ClInclude Include="Common.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="plugins">

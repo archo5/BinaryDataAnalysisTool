@@ -14,7 +14,7 @@ void FileView::Build()
 {
 	ui::Push<ui::EdgeSliceLayoutElement>();
 
-	ui::Push<ui::StackTopDownLayoutElement>();
+	ui::Push<ui::StackLTRLayoutElement>();
 	{
 		char buf[256];
 		if (of->hexViewerState.selectionStart != UINT64_MAX)
@@ -48,6 +48,7 @@ void FileView::Build()
 	{
 		ui::imm::PropEditInt("Width", of->hexViewerState.byteWidth, {}, {}, { 1, 256 });
 		ui::imm::PropEditInt("Position", of->hexViewerState.basePos);
+		ui::imm::PropDropdownMenuList("Endianness", of->hexViewerState.endianness, ui::BuildAlloc<ui::ZeroSepCStrOptionList>("Little\0Big\0"));
 	}
 	ui::Pop(); // end tree stabilization box
 
@@ -68,6 +69,7 @@ void FileView::HexViewer_OnRightClick()
 {
 	auto* ds = of->ddFile->dataSource;
 	int64_t pos = of->hexViewerState.hoverByte;
+	auto endianness = of->hexViewerState.endianness;
 	auto selMin = ui::min(of->hexViewerState.selectionStart, of->hexViewerState.selectionEnd);
 	auto selMax = ui::max(of->hexViewerState.selectionStart, of->hexViewerState.selectionEnd);
 	if (selMin != UINT64_MAX && selMax != UINT64_MAX && selMin <= pos && pos <= selMax)
@@ -84,24 +86,25 @@ void FileView::HexViewer_OnRightClick()
 	char txt_uint8[32];
 	ds->GetInt8Text(txt_uint8, 32, pos, false);
 	char txt_int16[32];
-	ds->GetInt16Text(txt_int16, 32, pos, true);
+	ds->GetInt16Text(txt_int16, 32, pos, endianness, true);
 	char txt_uint16[32];
-	ds->GetInt16Text(txt_uint16, 32, pos, false);
+	ds->GetInt16Text(txt_uint16, 32, pos, endianness, false);
 	char txt_int32[32];
-	ds->GetInt32Text(txt_int32, 32, pos, true);
+	ds->GetInt32Text(txt_int32, 32, pos, endianness, true);
 	char txt_uint32[32];
-	ds->GetInt32Text(txt_uint32, 32, pos, false);
+	ds->GetInt32Text(txt_uint32, 32, pos, endianness, false);
 	char txt_int64[32];
-	ds->GetInt64Text(txt_int64, 32, pos, true);
+	ds->GetInt64Text(txt_int64, 32, pos, endianness, true);
 	char txt_uint64[32];
-	ds->GetInt64Text(txt_uint64, 32, pos, false);
+	ds->GetInt64Text(txt_uint64, 32, pos, endianness, false);
 	char txt_float32[32];
-	ds->GetFloat32Text(txt_float32, 32, pos);
+	ds->GetFloat32Text(txt_float32, 32, pos, endianness);
 	char txt_float64[32];
-	ds->GetFloat64Text(txt_float64, 32, pos);
+	ds->GetFloat64Text(txt_float64, 32, pos, endianness);
 
 	int32_t val_int32;
 	ds->Read(pos, sizeof(val_int32), &val_int32);
+	EndiannessAdjust(val_int32, endianness);
 
 	std::vector<ui::MenuItem> structs;
 	{
@@ -142,19 +145,19 @@ void FileView::HexViewer_OnRightClick()
 		ui::MenuItem::Submenu("Place struct", structs),
 		ui::MenuItem::Submenu("Place image", images),
 		ui::MenuItem::Separator(),
-		ui::MenuItem("Go to offset (u32)", txt_uint32).Func([this, pos]() { GoToOffset(pos); }),
+		ui::MenuItem("Go to offset (u32)", txt_uint32).Func([this, pos, endianness]() { GoToOffset(pos, endianness); }),
 		ui::MenuItem::Separator(),
-		ui::MenuItem("Mark ASCII", txt_ascii).Func([&md, pos]() { md.AddMarker(DT_CHAR, pos, pos + 1); }),
-		ui::MenuItem("Mark int8", txt_int8).Func([&md, pos]() { md.AddMarker(DT_I8, pos, pos + 1); }),
-		ui::MenuItem("Mark uint8", txt_uint8).Func([&md, pos]() { md.AddMarker(DT_U8, pos, pos + 1); }),
-		ui::MenuItem("Mark int16", txt_int16).Func([&md, pos]() { md.AddMarker(DT_I16, pos, pos + 2); }),
-		ui::MenuItem("Mark uint16", txt_uint16).Func([&md, pos]() { md.AddMarker(DT_U16, pos, pos + 2); }),
-		ui::MenuItem("Mark int32", txt_int32).Func([&md, pos]() { md.AddMarker(DT_I32, pos, pos + 4); }),
-		ui::MenuItem("Mark uint32", txt_uint32).Func([&md, pos]() { md.AddMarker(DT_U32, pos, pos + 4); }),
-		ui::MenuItem("Mark int64", txt_int64).Func([&md, pos]() { md.AddMarker(DT_I64, pos, pos + 8); }),
-		ui::MenuItem("Mark uint64", txt_uint64).Func([&md, pos]() { md.AddMarker(DT_U64, pos, pos + 8); }),
-		ui::MenuItem("Mark float32", txt_float32).Func([&md, pos]() { md.AddMarker(DT_F32, pos, pos + 4); }),
-		ui::MenuItem("Mark float64", txt_float64).Func([&md, pos]() { md.AddMarker(DT_F64, pos, pos + 8); }),
+		ui::MenuItem("Mark ASCII", txt_ascii).Func([&md, pos, endianness]() { md.AddMarker(DT_CHAR, endianness, pos, pos + 1); }),
+		ui::MenuItem("Mark int8", txt_int8).Func([&md, pos, endianness]() { md.AddMarker(DT_I8, endianness, pos, pos + 1); }),
+		ui::MenuItem("Mark uint8", txt_uint8).Func([&md, pos, endianness]() { md.AddMarker(DT_U8, endianness, pos, pos + 1); }),
+		ui::MenuItem("Mark int16", txt_int16).Func([&md, pos, endianness]() { md.AddMarker(DT_I16, endianness, pos, pos + 2); }),
+		ui::MenuItem("Mark uint16", txt_uint16).Func([&md, pos, endianness]() { md.AddMarker(DT_U16, endianness, pos, pos + 2); }),
+		ui::MenuItem("Mark int32", txt_int32).Func([&md, pos, endianness]() { md.AddMarker(DT_I32, endianness, pos, pos + 4); }),
+		ui::MenuItem("Mark uint32", txt_uint32).Func([&md, pos, endianness]() { md.AddMarker(DT_U32, endianness, pos, pos + 4); }),
+		ui::MenuItem("Mark int64", txt_int64).Func([&md, pos, endianness]() { md.AddMarker(DT_I64, endianness, pos, pos + 8); }),
+		ui::MenuItem("Mark uint64", txt_uint64).Func([&md, pos, endianness]() { md.AddMarker(DT_U64, endianness, pos, pos + 8); }),
+		ui::MenuItem("Mark float32", txt_float32).Func([&md, pos, endianness]() { md.AddMarker(DT_F32, endianness, pos, pos + 4); }),
+		ui::MenuItem("Mark float64", txt_float64).Func([&md, pos, endianness]() { md.AddMarker(DT_F64, endianness, pos, pos + 8); }),
 		ui::MenuItem::Separator(),
 		ui::MenuItem("Highlight all int32", txt_int32).Func([this, val_int32]() { of->highlightSettings.AddCustomInt32(val_int32); }),
 	};
@@ -211,15 +214,17 @@ void FileView::CreateImage(int64_t pos, ui::StringView fmt)
 	img.height = 4;
 	img.offImage = pos;
 	img.format.assign(fmt.data(), fmt.size());
+	img.opaque = true;
 	img.file = of->ddFile;
 	workspace->desc.curImage = workspace->desc.images.size();
 	workspace->desc.images.push_back(img);
 }
 
-void FileView::GoToOffset(int64_t pos)
+void FileView::GoToOffset(int64_t pos, Endianness endianness)
 {
 	uint32_t off = 0;
 	of->ddFile->dataSource->Read(pos, sizeof(off), &off);
+	EndiannessAdjust(off, endianness);
 
 	of->hexViewerState.GoToPos(off);
 }

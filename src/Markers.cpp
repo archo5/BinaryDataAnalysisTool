@@ -142,8 +142,8 @@ template<class T> void ApplyStartEndBits(T& r, int sb, int eb)
 void ApplyStartEndBits(float& r, int sb, int eb) {}
 void ApplyStartEndBits(double& r, int sb, int eb) {}
 
-typedef AnalysisResult AnalysisFunc(IDataSource* ds, uint64_t off, uint64_t stride, uint64_t count, uint8_t sb, uint8_t eb, bool excl0);
-template <class T> AnalysisResult AnalysisFuncImpl(IDataSource* ds, uint64_t off, uint64_t stride, uint64_t count, uint8_t sb, uint8_t eb, bool excl0)
+typedef AnalysisResult AnalysisFunc(IDataSource* ds, Endianness en, uint64_t off, uint64_t stride, uint64_t count, uint8_t sb, uint8_t eb, bool excl0);
+template <class T> AnalysisResult AnalysisFuncImpl(IDataSource* ds, Endianness en, uint64_t off, uint64_t stride, uint64_t count, uint8_t sb, uint8_t eb, bool excl0)
 {
 	using ST = typename get_signed<T>::type;
 	T min = std::numeric_limits<T>::max();
@@ -162,6 +162,7 @@ template <class T> AnalysisResult AnalysisFuncImpl(IDataSource* ds, uint64_t off
 	{
 		T val;
 		ds->Read(off + stride * i, sizeof(val), &val);
+		EndiannessAdjust(val, en);
 		ApplyStartEndBits(val, sb, eb);
 		if (excl0 && val == 0)
 			continue;
@@ -384,11 +385,12 @@ ui::Color4f Marker::GetColor() const
 }
 
 
-void MarkerData::AddMarker(DataType dt, uint64_t from, uint64_t to)
+void MarkerData::AddMarker(DataType dt, Endianness endianness, uint64_t from, uint64_t to)
 {
 	Marker m;
 	{
 		m.type = dt;
+		m.endianness = endianness;
 		m.at = from;
 		m.count = (to - from) / typeSizes[dt];
 		m.repeats = 1;
@@ -416,6 +418,7 @@ void MarkerData::Load(const char* key, NamedTextSerializeReader& r)
 		for (int i = 0; i < DT__COUNT; i++)
 			if (typeNames[i] == type)
 				M.type = (DataType)i;
+		M.endianness = EndiannessFromString(r.ReadString("endianness"));
 		M.at = r.ReadUInt64("at");
 		M.count = r.ReadUInt64("count");
 		M.repeats = r.ReadUInt64("repeats");
@@ -444,6 +447,7 @@ void MarkerData::Save(const char* key, NamedTextSerializeWriter& w)
 		w.BeginDict("");
 
 		w.WriteString("type", typeNames[M.type]);
+		w.WriteString("endianness", EndiannessToString(M.endianness));
 		w.WriteInt("at", M.at);
 		w.WriteInt("count", M.count);
 		w.WriteInt("repeats", M.repeats);
@@ -547,6 +551,7 @@ void MarkedItemEditor::Build()
 	ui::Push<ui::FrameElement>().SetDefaultFrameStyle(ui::DefaultFrameStyle::GroupBox);
 	ui::Push<ui::StackTopDownLayoutElement>();
 	ui::imm::PropDropdownMenuList("Type", marker->type, ui::BuildAlloc<ui::CStrArrayOptionList>(typeNames));
+	ui::imm::PropDropdownMenuList("Endianness", marker->endianness, ui::BuildAlloc<ui::ZeroSepCStrOptionList>("Little\0Big\0"));
 	ui::imm::PropEditInt("Offset", marker->at);
 	ui::imm::PropEditInt("Count", marker->count, { ui::AddLabelTooltip("The number of elements within a single packed array") });
 	ui::imm::PropEditInt("Repeats", marker->repeats, { ui::AddLabelTooltip(">1 turns on analysis across repeats instead of packed array") });
@@ -570,7 +575,7 @@ void MarkedItemEditor::Build()
 		if (marker->repeats <= 1)
 		{
 			// analyze a single array
-			analysisData.results.push_back(analysisFuncs[marker->type](dataSource, marker->at, typeSizes[marker->type],
+			analysisData.results.push_back(analysisFuncs[marker->type](dataSource, marker->endianness, marker->at, typeSizes[marker->type],
 				marker->count, marker->bitstart, marker->bitend, marker->excludeZeroes));
 		}
 		else
@@ -578,7 +583,7 @@ void MarkedItemEditor::Build()
 			// analyze each array element separately
 			for (uint64_t i = 0; i < marker->count; i++)
 			{
-				analysisData.results.push_back(analysisFuncs[marker->type](dataSource, marker->at + i * typeSizes[marker->type],
+				analysisData.results.push_back(analysisFuncs[marker->type](dataSource, marker->endianness, marker->at + i * typeSizes[marker->type],
 					marker->stride, marker->repeats, marker->bitstart, marker->bitend, marker->excludeZeroes));
 			}
 		}

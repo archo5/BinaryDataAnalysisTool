@@ -42,6 +42,7 @@ struct DataDesc
 		uint32_t height = 0;
 		std::string format;
 		std::string notes;
+		bool opaque = false;
 		bool userCreated = true;
 	};
 
@@ -162,6 +163,7 @@ struct CachedImage
 				imgDesc.offImage == curImgDesc.offImage &&
 				imgDesc.offPalette == curImgDesc.offPalette &&
 				imgDesc.format == curImgDesc.format &&
+				imgDesc.opaque == curImgDesc.opaque &&
 				imgDesc.width == curImgDesc.width &&
 				imgDesc.height == curImgDesc.height)
 			{
@@ -169,7 +171,7 @@ struct CachedImage
 			}
 		}
 
-		curImg = CreateImageFrom(imgDesc.file->dataSource, imgDesc.format.c_str(), { imgDesc.offImage, imgDesc.offPalette, imgDesc.width, imgDesc.height });
+		curImg = CreateImageFrom(imgDesc.file->dataSource, imgDesc.format.c_str(), { imgDesc.offImage, imgDesc.offPalette, imgDesc.width, imgDesc.height, imgDesc.opaque });
 		curImgDesc = imgDesc;
 		return curImg;
 	}

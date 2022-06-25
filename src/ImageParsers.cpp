@@ -11,11 +11,12 @@ static uint32_t divup(uint32_t x, uint32_t d)
 
 static uint32_t RGB5A1_to_RGBA8(uint16_t v)
 {
+	if (v == 0)
+		return 0;
 	uint32_t r = ((v >> 0) & 0x1f) << 3;
 	uint32_t g = ((v >> 5) & 0x1f) << 3;
 	uint32_t b = ((v >> 10) & 0x1f) << 3;
-	uint32_t a = (v & 0x8000) ? 255 : 0;
-	return (r << 0) | (g << 8) | (b << 16) | (a << 24);
+	return (r << 0) | (g << 8) | (b << 16) | 0xff000000;
 }
 
 static uint32_t RGB565_to_RGBA8(uint16_t v)
@@ -173,6 +174,32 @@ static void ReadImage_4BPP_RGB5A1(ReadImageIO& io, const ImageInfo& info)
 			io.pixels[px] = palc[v1];
 			px++;
 			io.pixels[px] = palc[v2];
+		}
+	}
+}
+
+static void ReadImage_8BPP_RGB5A1(ReadImageIO& io, const ImageInfo& info)
+{
+	if (info.width > 4096)
+	{
+		io.error = true;
+		return;
+	}
+
+	uint16_t palo[256];
+	io.ds->Read(info.offPal, sizeof(palo), palo);
+
+	uint32_t palc[256];
+	for (int i = 0; i < 256; i++)
+		palc[i] = RGB5A1_to_RGBA8(palo[i]);
+
+	uint8_t line[4096];
+	for (uint32_t y = 0; y < info.height; y++)
+	{
+		io.ds->Read(info.offImg + info.width * y, info.width, line);
+		for (uint32_t x = 0; x < info.width; x++)
+		{
+			io.pixels[x + y * info.width] = palc[line[x]];
 		}
 	}
 }
@@ -356,6 +383,7 @@ static const ImageFormat g_imageFormats[] =
 	{ "Basic", "8BPP_RGBA8", ReadImage_8BPP_RGBA8 },
 	{ "PSX", "RGB5A1", ReadImage_RGB5A1 },
 	{ "PSX", "4BPP_RGB5A1", ReadImage_4BPP_RGB5A1 },
+	{ "PSX", "8BPP_RGB5A1", ReadImage_8BPP_RGB5A1 },
 	{ "PSX", "4BPP_RGBo8", ReadImage_4BPP_RGBo8 },
 	{ "S3TC", "DXT1", ReadImage_DXT1 },
 	{ "S3TC", "DXT3", ReadImage_DXT3 },
@@ -397,6 +425,15 @@ ui::draw::ImageHandle CreateImageFrom(IDataSource* ds, ui::StringView fmt, const
 
 	if (!done)
 		return nullptr;
+
+	if (info.opaque)
+	{
+		auto* px = c.GetPixels();
+		for (size_t i = 0, num = c.GetNumPixels(); i < num; i++)
+		{
+			px[i] |= 0xff000000;
+		}
+	}
 
 	return ui::draw::ImageCreateFromCanvas(c, ui::draw::TexFlags::Repeat | ui::draw::TexFlags::NoFilter);
 }

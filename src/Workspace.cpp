@@ -9,6 +9,7 @@ void OpenedFile::Load(NamedTextSerializeReader& r)
 	fileID = r.ReadUInt64("fileID");
 	hexViewerState.basePos = r.ReadUInt64("basePos");
 	hexViewerState.byteWidth = r.ReadUInt("byteWidth");
+	hexViewerState.endianness = EndiannessFromString(r.ReadString("endianness"));
 	highlightSettings.Load("highlighter", r);
 	r.EndDict();
 }
@@ -19,6 +20,7 @@ void OpenedFile::Save(NamedTextSerializeWriter& w)
 	w.WriteInt("fileID", fileID);
 	w.WriteInt("basePos", hexViewerState.basePos);
 	w.WriteInt("byteWidth", hexViewerState.byteWidth);
+	w.WriteString("endianness", EndiannessToString(hexViewerState.endianness));
 	highlightSettings.Save("highlighter", w);
 	w.EndDict();
 }
