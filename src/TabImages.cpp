@@ -46,7 +46,7 @@ void TabImages::Build()
 				{
 					workspace->curOpenedFile = ofid;
 					ofile->hexViewerState.basePos = IMG.offImage;
-					tv.Rebuild();
+					ui::Notify(DCT_CurrentFile);
 				}
 			}
 		};

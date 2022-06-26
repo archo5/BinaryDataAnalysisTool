@@ -61,7 +61,7 @@ void TabStructures::Build()
 				{
 					workspace->curOpenedFile = ofid;
 					ofile->hexViewerState.basePos = SI->off;
-					tv.Rebuild();
+					ui::Notify(DCT_CurrentFile);
 				}
 			}
 		};

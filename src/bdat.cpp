@@ -134,6 +134,7 @@ struct MainWindow : ui::NativeMainWindow
 		ui::Push<ui::EdgeSliceLayoutElement>();
 		ui::Make<ui::DefaultOverlayBuilder>();
 
+		ui::GetCurrentBuildable()->Subscribe(DCT_CurrentFile);
 		auto& tpFiles = ui::Push<ui::TabbedPanel>();
 		tpFiles.showCloseButton = true;
 		{

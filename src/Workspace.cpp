@@ -3,6 +3,9 @@
 #include "Workspace.h"
 
 
+ui::DataCategoryTag DCT_CurrentFile[1];
+
+
 void OpenedFile::Load(NamedTextSerializeReader& r)
 {
 	r.BeginDict("");

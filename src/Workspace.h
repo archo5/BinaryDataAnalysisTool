@@ -6,6 +6,9 @@
 #include "FileReaders.h"
 
 
+extern ui::DataCategoryTag DCT_CurrentFile[1];
+
+
 enum class SubtabType
 {
 	Inspect = 0,
