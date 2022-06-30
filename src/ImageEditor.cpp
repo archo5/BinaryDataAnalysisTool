@@ -18,7 +18,8 @@ void ImageEditorWindowNode::Build()
 				ui::Push<ui::FrameElement>().SetDefaultFrameStyle(ui::DefaultFrameStyle::Checkerboard);
 				auto& img = ui::Make<ui::ImageElement>();
 				img.SetLayoutMode(ui::ImageLayoutMode::Fill);
-				img.SetImage(cachedImg.GetImage(ddiSrc.dataDesc->GetInstanceImage(*ddiSrc.dataDesc->curInst)));
+				auto ddImg = ddiSrc.dataDesc->GetInstanceImage(*ddiSrc.dataDesc->curInst);
+				img.SetImage(cachedImg.GetImage(ddImg));
 				img.SetScaleMode(ui::ScaleMode::Fit);
 				ui::Pop();
 			}

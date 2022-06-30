@@ -210,11 +210,11 @@ void FileView::CreateImage(int64_t pos, ui::StringView fmt)
 {
 	DataDesc::Image img;
 	img.userCreated = true;
-	img.width = 4;
-	img.height = 4;
-	img.offImage = pos;
+	img.info.width = 4;
+	img.info.height = 4;
+	img.info.offImg = pos;
 	img.format.assign(fmt.data(), fmt.size());
-	img.opaque = true;
+	img.info.opaque = true;
 	img.file = of->ddFile;
 	workspace->desc.curImage = workspace->desc.images.size();
 	workspace->desc.images.push_back(img);

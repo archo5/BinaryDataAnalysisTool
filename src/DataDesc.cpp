@@ -595,12 +595,16 @@ void DataDesc::EditImageItems()
 
 		bool chg = false;
 		chg |= ui::imm::PropEditString("Notes", I.notes.c_str(), [&I](const char* s) { I.notes = s; });
+		chg |= ui::imm::PropEditInt("Image offset", I.info.offImg);
+		chg |= ui::imm::PropEditInt("Palette offset", I.info.offPal);
+		chg |= ui::imm::PropDropdownMenuList("Palette mode",
+			I.info.paletteMode,
+			ui::BuildAlloc<ui::ZeroSepCStrOptionList>("None\0Index8\0Low4High4\0"));
+		chg |= ui::imm::PropEditInt("Width", I.info.width);
+		chg |= ui::imm::PropEditInt("Height", I.info.height);
+		chg |= ui::imm::PropEditBool("Opaque", I.info.opaque);
 		chg |= EditImageFormat("Format", I.format);
-		chg |= ui::imm::PropEditBool("Opaque", I.opaque);
-		chg |= ui::imm::PropEditInt("Image offset", I.offImage);
-		chg |= ui::imm::PropEditInt("Palette offset", I.offPalette);
-		chg |= ui::imm::PropEditInt("Width", I.width);
-		chg |= ui::imm::PropEditInt("Height", I.height);
+		I.GetOrCreateSettings().EditUI();
 		if (chg)
 			ui::RebuildCurrent();
 
@@ -695,10 +699,10 @@ DataDesc::Image DataDesc::GetInstanceImage(const DDStructInst& SI)
 	auto& II = *SI.def->resource.image;
 	Image img;
 	img.file = SI.file;
-	img.offImage = II.imgOff.Evaluate(vs);
-	img.offPalette = II.palOff.Evaluate(vs);
-	img.width = II.width.Evaluate(vs);
-	img.height = II.height.Evaluate(vs);
+	img.info.offImg = II.imgOff.Evaluate(vs);
+	img.info.offPal = II.palOff.Evaluate(vs);
+	img.info.width = II.width.Evaluate(vs);
+	img.info.height = II.height.Evaluate(vs);
 	img.format = II.format;
 
 	for (auto& FO : II.formatOverrides)
@@ -881,14 +885,28 @@ void DataDesc::Load(const char* key, NamedTextSerializeReader& r)
 
 		Image I;
 		I.file = FindFileByID(r.ReadUInt64("file"));
-		I.offImage = r.ReadInt64("offImage");
-		I.offPalette = r.ReadInt64("offPalette");
-		I.width = r.ReadUInt("width");
-		I.height = r.ReadUInt("height");
 		I.format = r.ReadString("format");
-		I.opaque = r.ReadBool("opaque");
+		auto settings = CreateImageFormatSettings(I.format);
+		settings->LoadSettings(r);
+		I.allSettings[I.format] = settings;
+		I.info.paletteMode = PaletteModeFromString(r.ReadString("paletteMode"));
+		I.info.offImg = r.ReadInt64("offImage");
+		I.info.offPal = r.ReadInt64("offPalette");
+		I.info.width = r.ReadUInt("width");
+		I.info.height = r.ReadUInt("height");
+		I.info.opaque = r.ReadBool("opaque");
 		I.notes = r.ReadString("notes");
 		I.userCreated = r.ReadBool("userCreated");
+		if (ui::StringView(I.format).starts_with("8BPP_"))
+		{
+			I.format.erase(0, 5);
+			I.info.paletteMode = PaletteMode::Index8;
+		}
+		else if (ui::StringView(I.format).starts_with("4BPP_"))
+		{
+			I.format.erase(0, 5);
+			I.info.paletteMode = PaletteMode::Low4High4;
+		}
 		images.push_back(I);
 
 		r.EndDict();
@@ -978,17 +996,19 @@ void DataDesc::Save(const char* key, NamedTextSerializeWriter& w)
 	w.EndArray();
 
 	w.BeginArray("images");
-	for (const Image& I : images)
+	for (Image& I : images)
 	{
 		w.BeginDict("");
 
 		w.WriteInt("file", I.file->id);
-		w.WriteInt("offImage", I.offImage);
-		w.WriteInt("offPalette", I.offPalette);
-		w.WriteInt("width", I.width);
-		w.WriteInt("height", I.height);
 		w.WriteString("format", I.format);
-		w.WriteBool("opaque", I.opaque);
+		I.GetOrCreateSettings().SaveSettings(w);
+		w.WriteString("paletteMode", PaletteModeToString(I.info.paletteMode));
+		w.WriteInt("offImage", I.info.offImg);
+		w.WriteInt("offPalette", I.info.offPal);
+		w.WriteInt("width", I.info.width);
+		w.WriteInt("height", I.info.height);
+		w.WriteBool("opaque", I.info.opaque);
 		w.WriteString("notes", I.notes);
 		w.WriteBool("userCreated", I.userCreated);
 
@@ -1271,6 +1291,7 @@ enum COLS_DDIMG
 	DDIMG_COL_ImgOff,
 	DDIMG_COL_PalOff,
 	DDIMG_COL_Format,
+	DDIMG_COL_PalMode,
 	DDIMG_COL_Opaque,
 	DDIMG_COL_Width,
 	DDIMG_COL_Height,
@@ -1309,6 +1330,7 @@ std::string DataDescImageSource::GetColName(size_t col)
 	case DDIMG_COL_ImgOff: return "Image Offset";
 	case DDIMG_COL_PalOff: return "Palette Offset";
 	case DDIMG_COL_Format: return "Format";
+	case DDIMG_COL_PalMode: return "Pal.mode";
 	case DDIMG_COL_Opaque: return "Opaque";
 	case DDIMG_COL_Width: return "Width";
 	case DDIMG_COL_Height: return "Height";
@@ -1325,12 +1347,13 @@ std::string DataDescImageSource::GetText(size_t row, size_t col)
 	case DDIMG_COL_ID: return std::to_string(_indices[row]);
 	case DDIMG_COL_User: return dataDesc->images[_indices[row]].userCreated ? "+" : "";
 	case DDIMG_COL_File: return dataDesc->images[_indices[row]].file->name;
-	case DDIMG_COL_ImgOff: return std::to_string(dataDesc->images[_indices[row]].offImage);
-	case DDIMG_COL_PalOff: return std::to_string(dataDesc->images[_indices[row]].offPalette);
+	case DDIMG_COL_ImgOff: return std::to_string(dataDesc->images[_indices[row]].info.offImg);
+	case DDIMG_COL_PalOff: return std::to_string(dataDesc->images[_indices[row]].info.offPal);
 	case DDIMG_COL_Format: return dataDesc->images[_indices[row]].format;
-	case DDIMG_COL_Opaque: return dataDesc->images[_indices[row]].opaque ? "+" : "";
-	case DDIMG_COL_Width: return std::to_string(dataDesc->images[_indices[row]].width);
-	case DDIMG_COL_Height: return std::to_string(dataDesc->images[_indices[row]].height);
+	case DDIMG_COL_PalMode: return PaletteModeToString(dataDesc->images[_indices[row]].info.paletteMode);
+	case DDIMG_COL_Opaque: return dataDesc->images[_indices[row]].info.opaque ? "+" : "";
+	case DDIMG_COL_Width: return std::to_string(dataDesc->images[_indices[row]].info.width);
+	case DDIMG_COL_Height: return std::to_string(dataDesc->images[_indices[row]].info.height);
 	default: return "???";
 	}
 }

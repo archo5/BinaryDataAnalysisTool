@@ -36,14 +36,21 @@ struct DataDesc
 	struct Image
 	{
 		DDFile* file = nullptr;
-		int64_t offImage = 0;
-		int64_t offPalette = 0;
-		uint32_t width = 0;
-		uint32_t height = 0;
+		ImageInfo info;
 		std::string format;
+		ui::HashMap<std::string, ImageFormatSettingsHandle> allSettings;
+		std::string _savedSettings;
 		std::string notes;
-		bool opaque = false;
 		bool userCreated = true;
+
+		IImageFormatSettings& GetOrCreateSettings()
+		{
+			if (auto h = allSettings.get(format))
+				return *h;
+			ImageFormatSettingsHandle h = CreateImageFormatSettings(format);
+			allSettings.insert(format, h);
+			return *h;
+		}
 	};
 
 	// data
@@ -155,24 +162,24 @@ struct DataDescImageSource : ui::TableDataSource, ui::ISelectionStorage
 
 struct CachedImage
 {
-	ui::draw::ImageHandle GetImage(const DataDesc::Image& imgDesc)
+	ui::draw::ImageHandle GetImage(DataDesc::Image& imgDesc)
 	{
+		auto& settings = imgDesc.GetOrCreateSettings();
+		auto expSettings = settings.ExportSettingsBlob();
 		if (curImg)
 		{
 			if (imgDesc.file == curImgDesc.file &&
-				imgDesc.offImage == curImgDesc.offImage &&
-				imgDesc.offPalette == curImgDesc.offPalette &&
+				imgDesc.info == curImgDesc.info &&
 				imgDesc.format == curImgDesc.format &&
-				imgDesc.opaque == curImgDesc.opaque &&
-				imgDesc.width == curImgDesc.width &&
-				imgDesc.height == curImgDesc.height)
+				expSettings == curImgDesc._savedSettings)
 			{
 				return curImg;
 			}
 		}
 
-		curImg = CreateImageFrom(imgDesc.file->dataSource, imgDesc.format.c_str(), { imgDesc.offImage, imgDesc.offPalette, imgDesc.width, imgDesc.height, imgDesc.opaque });
+		curImg = CreateImageFrom(imgDesc.file->dataSource, imgDesc.format.c_str(), &settings, imgDesc.info);
 		curImgDesc = imgDesc;
+		curImgDesc._savedSettings = expSettings;
 		return curImg;
 	}
 

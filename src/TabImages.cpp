@@ -45,7 +45,7 @@ void TabImages::Build()
 				if (ofile)
 				{
 					workspace->curOpenedFile = ofid;
-					ofile->hexViewerState.basePos = IMG.offImage;
+					ofile->hexViewerState.basePos = IMG.info.offImg;
 					ui::Notify(DCT_CurrentFile);
 				}
 			}

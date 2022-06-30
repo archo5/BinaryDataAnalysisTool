@@ -1,15 +1,15 @@
 
 # Image parsing
 
-## Features of interest / 2022-06-26
+## ✅ Features of interest / 2022-06-26
 
 * Exploring uncompressed data via complex RGBA settings
-	* Accelerated parsing where possible
-	* Requires format-specific settings (e.g. no point showing/storing RGBA settings for DXT)
-	* Do not need to cover the entire range of possibilities immediately though
-	* Having shortcuts in the form of common presets would be time-saving
+** Accelerated parsing where possible
+** Requires format-specific settings (e.g. no point showing/storing RGBA settings for DXT)
+** Do not need to cover the entire range of possibilities immediately though
+** Having shortcuts in the form of common presets would be time-saving
 * Separating index formats from color formats
-	* allow using color formats for parsing the palette to be used with the index map
+** allow using color formats for parsing the palette to be used with the index map
 
 Current state:
 
@@ -20,14 +20,15 @@ Decisions:
 
 * Index map parsers can be hardcoded (currently only needed 4/8-bit for PSX)
 * RGBA parser feature set:
-	* bytes per pixel (1-4), little/big endianness
-	* gray or RGB color space, all channels are optional (default alpha = 255, others = 0)
-	* per-channel settings: number of bits (1-8), bit offset (0-31)
-		* channel could be disabled by setting #bits to 0
-	* vectorized parsing (every parse is some medium-sized multiple of 64 bytes [cache line])
+** bytes per pixel (1-4), little/big endianness
+** gray or RGB color space, all channels are optional (default alpha = 255, others = 0)
+** per-channel settings: number of bits (1-8), bit offset (0-31)
+*** channel could be disabled by setting #bits to 0
+** vectorized parsing (every parse is some medium-sized multiple of 64 bytes [cache line])
 * how to handle exotic formats like PSX RGB5A1?
-	* 0x8000 is black, 0 is transparent, with any other color the alpha bit is basically ignored (some games fill it, others don't)
-	* use a custom parser for these, it's expected that the generic parser will be enough only to investigate, not to cover 100% of cases
+** 0x8000 is black, 0 is transparent, with any other color the alpha bit is basically ignored (some games fill it, others don't)
+** use a custom parser for these, it's expected that the generic parser will be enough only to investigate, not to cover 100% of cases
+** EDIT: also handling with a "black-only alpha" option
 * when/how to save the properties of the format?
-	* all settings should persist in memory while workspace is loaded to allow for fast switching
-	* only the settings relevant to the current format should be written to the workspace file
+** all settings should persist in memory while workspace is loaded to allow for fast switching
+** only the settings relevant to the current format should be written to the workspace file
