@@ -3,8 +3,8 @@
 #include "Markers.h"
 
 
-ui::DataCategoryTag DCT_Marker[1];
-ui::DataCategoryTag DCT_MarkedItems[1];
+ui::MulticastDelegate<const Marker*> OnMarkerChange;
+ui::MulticastDelegate<const MarkerData*> OnMarkerListChange;
 
 
 ui::Color4f colorChar{ 0.3f, 0.9f, 0.1f, 0.3f };
@@ -397,7 +397,7 @@ void MarkerData::AddMarker(DataType dt, Endianness endianness, uint64_t from, ui
 		m.stride = 0;
 	}
 	markers.push_back(m);
-	ui::Notify(DCT_MarkedItems, this);
+	OnMarkerListChange.Call(this);
 }
 
 void MarkerData::Load(const char* key, NamedTextSerializeReader& r)
@@ -545,7 +545,11 @@ void MarkedItemEditor::Build()
 {
 	ui::Push<ui::EdgeSliceLayoutElement>();
 
-	Subscribe(DCT_Marker, marker);
+	ui::BuildMulticastDelegateAdd(OnMarkerChange, [this](const Marker* m)
+	{
+		if (m == marker)
+			Rebuild();
+	});
 	ui::MakeWithText<ui::LabelFrame>("Marker");
 
 	ui::Push<ui::FrameElement>().SetDefaultFrameStyle(ui::DefaultFrameStyle::GroupBox);
@@ -657,7 +661,11 @@ void MarkedItemEditor::Build()
 
 void MarkedItemsList::Build()
 {
-	Subscribe(DCT_MarkedItems, markerData);
+	ui::BuildMulticastDelegateAdd(OnMarkerListChange, [this](const MarkerData* md)
+	{
+		if (markerData == md)
+			Rebuild();
+	});
 	ui::Text("Edit marked items");
 	for (auto& m : markerData->markers)
 	{

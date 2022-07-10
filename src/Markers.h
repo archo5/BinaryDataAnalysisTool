@@ -74,9 +74,8 @@ struct Marker
 	uint64_t GetEnd() const;
 	ui::Color4f GetColor() const;
 };
+extern ui::MulticastDelegate<const Marker*> OnMarkerChange;
 
-extern ui::DataCategoryTag DCT_Marker[1];
-extern ui::DataCategoryTag DCT_MarkedItems[1];
 struct MarkerData
 {
 	void AddMarker(DataType dt, Endianness endianness, uint64_t from, uint64_t to);
@@ -86,6 +85,7 @@ struct MarkerData
 
 	std::vector<Marker> markers;
 };
+extern ui::MulticastDelegate<const MarkerData*> OnMarkerListChange;
 
 struct MarkerDataSource : ui::TableDataSource, ui::ISelectionStorage
 {

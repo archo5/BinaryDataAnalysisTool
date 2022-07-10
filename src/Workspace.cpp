@@ -3,7 +3,7 @@
 #include "Workspace.h"
 
 
-ui::DataCategoryTag DCT_CurrentFile[1];
+ui::MulticastDelegate<OpenedFile*> OnCurrentFileChanged;
 
 
 void OpenedFile::Load(NamedTextSerializeReader& r)

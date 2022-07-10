@@ -6,9 +6,6 @@
 #include "FileReaders.h"
 
 
-extern ui::DataCategoryTag DCT_CurrentFile[1];
-
-
 enum class SubtabType
 {
 	Inspect = 0,
@@ -28,6 +25,8 @@ struct OpenedFile
 	HexViewerState hexViewerState;
 	HighlightSettings highlightSettings;
 };
+
+extern ui::MulticastDelegate<OpenedFile*> OnCurrentFileChanged;
 
 struct Workspace
 {

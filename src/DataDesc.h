@@ -29,8 +29,8 @@ struct DDFile
 };
 
 
-extern ui::DataCategoryTag DCT_Struct[1];
-extern ui::DataCategoryTag DCT_CurStructInst[1];
+extern ui::MulticastDelegate<DataDesc*, DDStruct*> OnCurStructChanged;
+extern ui::MulticastDelegate<DataDesc*, DDStructInst*> OnCurStructInstChanged;
 struct DataDesc
 {
 	struct Image

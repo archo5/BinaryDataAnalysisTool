@@ -3,7 +3,7 @@
 #include "MeshScript.h"
 
 
-ui::DataCategoryTag DCT_MeshScriptChanged[1];
+ui::MulticastDelegate<const MeshScript*> OnMeshScriptChanged;
 
 
 typedef MSNode* CreateNodeFn();
@@ -218,6 +218,13 @@ static float hsplitMeshScript[1] = { 0.5f };
 
 void MeshScript::EditUI()
 {
+	auto* cb = ui::GetCurrentBuildable();
+	ui::BuildMulticastDelegateAdd(OnMeshScriptChanged, [this, cb](const MeshScript* ms)
+	{
+		if (ms == this)
+			cb->Rebuild();
+	});
+
 	auto& sp1 = ui::Push<ui::SplitPane>().Init(ui::Direction::Horizontal, hsplitMeshScript);
 	{
 		auto& tree = ui::Make<ui::TreeEditor>();
@@ -237,8 +244,7 @@ void MeshScript::EditUI()
 		ui::Pop();
 	}
 	ui::Pop();
-	auto* cb = ui::GetCurrentBuildable();
-	cb->Subscribe(DCT_MeshScriptChanged, this);
+
 	sp1.HandleEvent() = [cb](ui::Event& e)
 	{
 		if (e.type == ui::EventType::IMChange ||
@@ -306,7 +312,7 @@ void MeshScript::Insert(ui::TreePathRef path, MSNode* node)
 		rootNodes.push_back(MSNode::Ptr(node));
 	else
 		FindNode(path).Get()->children.push_back(MSNode::Ptr(node));
-	ui::Notify(DCT_MeshScriptChanged, this);
+	OnMeshScriptChanged.Call(this);
 }
 
 void MeshScript::ClearSelection()

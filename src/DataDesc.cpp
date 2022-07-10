@@ -5,8 +5,8 @@
 #include "ImageParsers.h"
 
 
-ui::DataCategoryTag DCT_Struct[1];
-ui::DataCategoryTag DCT_CurStructInst[1];
+ui::MulticastDelegate<DataDesc*, DDStruct*> OnCurStructChanged;
+ui::MulticastDelegate<DataDesc*, DDStructInst*> OnCurStructInstChanged;
 
 
 bool EditImageFormat(const char* label, std::string& format)
@@ -645,7 +645,7 @@ void DataDesc::DeleteInstance(DDStructInst* inst)
 void DataDesc::SetCurrentInstance(DDStructInst* inst)
 {
 	curInst = inst;
-	ui::Notify(DCT_CurStructInst, nullptr);
+	OnCurStructInstChanged.Call(this, inst);
 }
 
 void DataDesc::_OnDeleteInstance(DDStructInst* inst)

@@ -67,7 +67,7 @@ struct HexViewerState
 
 	void GoToPos(int64_t pos);
 };
-extern ui::DataCategoryTag DCT_HexViewerState[1];
+extern ui::MulticastDelegate<const HexViewerState*> OnHexViewerStateChanged;
 
 struct HexViewer : ui::FillerElement
 {

@@ -34,7 +34,8 @@ struct TableWithOffsets
 		TryAddRow(hoverRow, col, ret, max, buf);
 
 		// TODO get visible range API
-		auto numrows = ds->GetNumRows();
+		std::vector<ui::GenericGridDataSource::TreeElementRef> ids;
+		size_t numrows = ds->GetElements(ui::All{}, ids);
 		auto rmin = curTable->GetRowAt(curTable->GetContentRect().y0);
 		if (rmin >= numrows)
 			rmin = 0;

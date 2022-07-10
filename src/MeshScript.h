@@ -8,9 +8,6 @@
 #include "MathExpr.h"
 
 
-extern ui::DataCategoryTag DCT_MeshScriptChanged[1];
-
-
 enum class MSPrimType : uint8_t
 {
 	Points,

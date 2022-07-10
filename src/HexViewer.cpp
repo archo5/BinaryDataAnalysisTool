@@ -8,10 +8,10 @@ void HexViewerState::GoToPos(int64_t pos)
 	basePos = std::max(0LL, pos - byteWidth);
 	selectionStart = std::max(0LL, pos);
 	selectionEnd = std::max(0LL, pos);
-	ui::Notify(DCT_HexViewerState, this);
+	OnHexViewerStateChanged.Call(this);
 }
 
-ui::DataCategoryTag DCT_HexViewerState[1];
+ui::MulticastDelegate<const HexViewerState*> OnHexViewerStateChanged;
 
 
 void HighlightSettings::AddCustomInt32(int32_t v)
@@ -381,8 +381,7 @@ void HexViewer::OnEvent(ui::Event& e)
 		{
 			state->mouseDown = true;
 			state->selectionStart = state->selectionEnd = state->hoverByte;
-			ui::Notify(DCT_HexViewerState, state);
-			Rebuild();
+			OnHexViewerStateChanged.Call(state);
 		}
 	}
 	else if (e.type == ui::EventType::ButtonUp)
@@ -390,7 +389,7 @@ void HexViewer::OnEvent(ui::Event& e)
 		if (e.GetButton() == ui::MouseButton::Left)
 		{
 			state->mouseDown = false;
-			ui::Notify(DCT_HexViewerState, state);
+			OnHexViewerStateChanged.Call(state);
 		}
 	}
 	else if (e.type == ui::EventType::MouseMove)
@@ -422,15 +421,13 @@ void HexViewer::OnEvent(ui::Event& e)
 		{
 			state->selectionEnd = state->hoverByte;
 		}
-		ui::Notify(DCT_HexViewerState, state);
-		Rebuild();
+		OnHexViewerStateChanged.Call(state);
 	}
 	else if (e.type == ui::EventType::MouseLeave)
 	{
 		state->hoverSection = -1;
 		state->hoverByte = UINT64_MAX;
-		ui::Notify(DCT_HexViewerState, state);
-		Rebuild();
+		OnHexViewerStateChanged.Call(state);
 	}
 	else if (e.type == ui::EventType::MouseScroll)
 	{
@@ -440,8 +437,7 @@ void HexViewer::OnEvent(ui::Event& e)
 		else
 			state->basePos -= diff;
 		state->basePos = std::min(file->dataSource->GetSize() - 1, state->basePos);
-		ui::Notify(DCT_HexViewerState, state);
-		Rebuild();
+		OnHexViewerStateChanged.Call(state);
 	}
 }
 
