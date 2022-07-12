@@ -331,10 +331,11 @@ struct RenameDialog : ui::NativeDialogWindow
 {
 	RenameDialog(ui::StringView name)
 	{
-		newName.assign(name.data(), name.size());
-		SetTitle(("Rename struct: " + newName).c_str());
+		origName.assign(name.data(), name.size());
+		newName = origName;
+		SetTitle(("Rename struct: " + origName).c_str());
 		SetStyle(ui::WindowStyle::WS_TitleBar);
-		SetInnerSize(400, 16 * 3 + 24 * 2);
+		SetInnerSize(400, 16 * 3 + 24 * 3);
 	}
 	void OnClose() override
 	{
@@ -345,14 +346,24 @@ struct RenameDialog : ui::NativeDialogWindow
 	{
 		ui::Push<ui::PaddingElement>().SetPadding(16);
 		ui::Push<ui::EdgeSliceLayoutElement>();
+
 		ui::imm::PropEditString("New name:", newName.c_str(), [this](const char* s) { newName = s; });
+
+		ui::LabeledProperty::Begin(" ");
+		std::string error;
+		if (newName.empty())
+			error = "Error: name is empty";
+		else if (usedNameCheck && newName != origName && usedNameCheck(newName))
+			error = "Error: name already in use";
+		ui::MakeWithText<ui::Header>(error).frameStyle.textColor = ui::Color4b(255, 0, 0);
+		ui::LabeledProperty::End();
 
 		ui::Make<ui::SizeConstraintElement>().SetHeight(16);
 
 		ui::Push<ui::StackExpandLTRLayoutElement>();
 
 		ui::Push<ui::SizeConstraintElement>().SetHeight(30);
-		if (ui::imm::Button("OK"))
+		if (ui::imm::Button("OK", { ui::Enable(error.empty()) }))
 		{
 			rename = true;
 			SetVisible(false);
@@ -376,6 +387,8 @@ struct RenameDialog : ui::NativeDialogWindow
 	}
 
 	bool rename = false;
+	std::function<bool(const std::string&)> usedNameCheck;
+	std::string origName;
 	std::string newName;
 };
 
@@ -388,30 +401,19 @@ void DataDesc::EditStruct()
 		ui::MakeWithText<ui::LabelFrame>(SI->def->name);
 		if (ui::imm::Button("Rename"))
 		{
-			RenameDialog rd(SI->def->name);
-			for (;;)
+			auto* S = SI->def;
+			ui::Application::PushEvent([this, S]()
 			{
+				RenameDialog rd(S->name);
+				rd.usedNameCheck = [this](const std::string& s) { return structs.find(s) != structs.end(); };
 				rd.Show();
-				if (rd.rename && rd.newName != SI->def->name)
+				if (rd.rename && rd.newName != S->name)
 				{
-					if (rd.newName.empty())
-					{
-						// TODO msgbox/rt
-						puts("Name empty!");
-						continue;
-					}
-					if (structs.find(rd.newName) != structs.end())
-					{
-						// TODO msgbox/rt
-						puts("Name already used!");
-						continue;
-					}
-					structs[rd.newName] = SI->def;
-					structs.erase(SI->def->name);
-					SI->def->name = rd.newName;
+					structs[rd.newName] = S;
+					structs.erase(S->name);
+					S->name = rd.newName;
 				}
-				break;
-			}
+			});
 		}
 		ui::Pop();
 
