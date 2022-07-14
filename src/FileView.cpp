@@ -195,6 +195,7 @@ DDStruct* FileView::CreateStructFromMarkers(int64_t pos)
 	{
 		if (M.at < selMin || M.at > selMax)
 			continue;
+#if 0 // TODO
 		for (DDField f;
 			f.type = GetDataTypeName(M.type),
 			f.name = f.type + "_" + std::to_string(at++),
@@ -202,6 +203,7 @@ DDStruct* FileView::CreateStructFromMarkers(int64_t pos)
 			f.count = M.count,
 			ns->fields.push_back(f),
 			false;);
+#endif
 	}
 	return ns;
 }

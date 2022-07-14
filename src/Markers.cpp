@@ -41,6 +41,14 @@ const char* GetDataTypeName(DataType t)
 	return typeNames[t];
 }
 
+int FindDataTypeByName(ui::StringView name)
+{
+	for (int i = 0; i < DT__COUNT; i++)
+		if (typeNames[i] == name)
+			return i;
+	return -1;
+}
+
 
 enum AnalysisDataColumns
 {
@@ -129,21 +137,17 @@ template<> struct get_signed<float> { using type = float; };
 template<> struct get_signed<double> { using type = double; };
 template<> struct get_signed<bool> { using type = bool; };
 
-template<class T> void ApplyStartEndBits(T& r, int sb, int eb)
+template<class T> void ApplyMaskExtend(T& r, const BDSSFastMask& mask)
 {
-	uint64_t mask2 = (1ULL << sb) - 1ULL;
-	r = r & ~mask2;
-	if (eb < 64)
-	{
-		uint64_t mask = (1ULL << eb) - 1ULL;
-		r = (r & mask) | (r < 0 ? ~mask : 0);
-	}
+	r &= mask.mask;
+	if (std::is_signed<T>::value && r & mask.lastBit)
+		r |= mask.extMask;
 }
-void ApplyStartEndBits(float& r, int sb, int eb) {}
-void ApplyStartEndBits(double& r, int sb, int eb) {}
+void ApplyMaskExtend(float& r, const BDSSFastMask& mask) {}
+void ApplyMaskExtend(double& r, const BDSSFastMask& mask) {}
 
-typedef AnalysisResult AnalysisFunc(IDataSource* ds, Endianness en, uint64_t off, uint64_t stride, uint64_t count, uint8_t sb, uint8_t eb, bool excl0);
-template <class T> AnalysisResult AnalysisFuncImpl(IDataSource* ds, Endianness en, uint64_t off, uint64_t stride, uint64_t count, uint8_t sb, uint8_t eb, bool excl0)
+typedef AnalysisResult AnalysisFunc(IDataSource* ds, Endianness en, uint64_t off, uint64_t stride, uint64_t count, const BDSSFastMask& mask, bool excl0);
+template <class T> AnalysisResult AnalysisFuncImpl(IDataSource* ds, Endianness en, uint64_t off, uint64_t stride, uint64_t count, const BDSSFastMask& mask, bool excl0)
 {
 	using ST = typename get_signed<T>::type;
 	T min = std::numeric_limits<T>::max();
@@ -163,7 +167,7 @@ template <class T> AnalysisResult AnalysisFuncImpl(IDataSource* ds, Endianness e
 		T val;
 		ds->Read(off + stride * i, sizeof(val), &val);
 		EndiannessAdjust(val, en);
-		ApplyStartEndBits(val, sb, eb);
+		ApplyMaskExtend(val, mask);
 		if (excl0 && val == 0)
 			continue;
 		*counts.insert({ val, 0 }).first++;
@@ -237,12 +241,12 @@ static const char* markerReadCodes[] =
 	"%g",
 	"%g",
 };
-typedef void MarkerReadFunc(std::string& outbuf, IDataSource* ds, uint64_t off, uint8_t sb, uint8_t eb);
-template <class T, DataType ty> void MarkerReadFuncImpl(std::string& outbuf, IDataSource* ds, uint64_t off, uint8_t sb, uint8_t eb)
+typedef void MarkerReadFunc(std::string& outbuf, IDataSource* ds, uint64_t off, const BDSSFastMask& mask);
+template <class T, DataType ty> void MarkerReadFuncImpl(std::string& outbuf, IDataSource* ds, uint64_t off, const BDSSFastMask& mask)
 {
 	T val;
 	ds->Read(off, sizeof(T), &val);
-	ApplyStartEndBits(val, sb, eb);
+	ApplyMaskExtend(val, mask);
 	char bfr[128];
 	snprintf(bfr, 128, markerReadCodes[ty], val);
 	outbuf += bfr;
@@ -267,42 +271,84 @@ std::string GetMarkerPreview(const Marker& marker, IDataSource* src, size_t maxL
 	std::string text;
 	for (uint64_t i = 0; i < marker.repeats; i++)
 	{
-		if (i) text += '/';
-		//if (marker.repeats > 1) text += '[';
-		for (uint64_t j = 0; j < marker.count; j++)
+		if (i)
+			text += '/';
+
+		bool first = true;
+		for (const auto& F : marker.compiled.structs[0]->fields)
 		{
-			if (j > 0 && marker.type != DT_CHAR)
-				text += ';';
-			markerReadFuncs[marker.type](text, src, marker.at + i * marker.stride + j * typeSizes[marker.type], marker.bitstart, marker.bitend);
-			if (text.size() > maxLen)
+			int type = FindDataTypeByName(F->typeName);
+			if (type == -1 ||
+				!F->fixedElemCount.HasValue() ||
+				!F->fixedOffset.HasValue())
 			{
-				text.erase(text.begin() + 32, text.end());
-				text += "...";
-				return text;
+				text += "error";
+				if (text.size() > maxLen)
+				{
+					text.erase(text.begin() + 32, text.end());
+					text += "...";
+					return text;
+				}
+				continue;
+			}
+
+			if (first)
+				first = false;
+			else
+				text += ";";
+
+			uint64_t off = marker.at + i * marker.stride + F->fixedOffset.GetValue();
+			uint64_t count = F->fixedElemCount.GetValue();
+			for (uint64_t j = 0; j < count; j++)
+			{
+				if (j > 0 && type != DT_CHAR)
+					text += ',';
+
+				markerReadFuncs[type](text, src, off + j * typeSizes[type], F->valueMask);
+				if (text.size() > maxLen)
+				{
+					text.erase(text.begin() + 32, text.end());
+					text += "...";
+					return text;
+				}
 			}
 		}
-		//if (marker.repeats > 1) text += ']';
 	}
 	return text;
 }
 std::string GetMarkerSingleLine(const Marker& marker, IDataSource* src, size_t which)
 {
 	std::string text;
-	for (uint64_t j = 0; j < marker.count; j++)
+	bool first = true;
+	for (const auto& F : marker.compiled.structs[0]->fields)
 	{
-		if (j > 0 && marker.type != DT_CHAR)
-			text += ',';
-		markerReadFuncs[marker.type](text, src, marker.at + which * marker.stride + j * typeSizes[marker.type], marker.bitstart, marker.bitend);
+		int type = FindDataTypeByName(F->typeName);
+		if (type == -1 ||
+			!F->fixedElemCount.HasValue() ||
+			!F->fixedOffset.HasValue())
+			continue;
+
+		uint64_t off = marker.at + which * marker.stride + F->fixedOffset.GetValue();
+		uint64_t count = F->fixedElemCount.GetValue();
+		for (uint64_t j = 0; j < count; j++)
+		{
+			if (first)
+				first = false;
+			else if (type != DT_CHAR)
+				text += ',';
+
+			markerReadFuncs[type](text, src, off + j * typeSizes[type], F->valueMask);
+		}
 	}
 	return text;
 }
 
-typedef int64_t Int64ReadFunc(IDataSource* ds, uint64_t off, uint8_t sb, uint8_t eb);
-template <class T> int64_t Int64ReadFuncImpl(IDataSource* ds, uint64_t off, uint8_t sb, uint8_t eb)
+typedef int64_t Int64ReadFunc(IDataSource* ds, uint64_t off, const BDSSFastMask& mask);
+template <class T> int64_t Int64ReadFuncImpl(IDataSource* ds, uint64_t off, const BDSSFastMask& mask)
 {
 	T v;
 	ds->Read(off, sizeof(v), &v);
-	ApplyStartEndBits(v, sb, eb);
+	ApplyMaskExtend(v, mask);
 	return int64_t(v);
 }
 static Int64ReadFunc* int64ReadFuncs[] =
@@ -321,51 +367,7 @@ static Int64ReadFunc* int64ReadFuncs[] =
 };
 
 
-bool Marker::Contains(uint64_t pos) const
-{
-	if (pos < at)
-		return false;
-	pos -= at;
-	if (stride)
-	{
-		if (pos >= stride * repeats)
-			return false;
-		pos %= stride;
-	}
-	return pos < typeSizes[type] * count;
-}
-
-unsigned Marker::ContainInfo(uint64_t pos) const
-{
-	if (pos < at)
-		return 0;
-	pos -= at;
-	if (stride)
-	{
-		if (pos >= stride * repeats)
-			return 0;
-		pos %= stride;
-	}
-
-	if (pos >= typeSizes[type] * count)
-		return 0;
-
-	unsigned ret = 1;
-	pos %= typeSizes[type];
-	if (pos == 0)
-		ret |= 2;
-	if (pos == typeSizes[type] - 1)
-		ret |= 4;
-	return ret;
-
-}
-
-uint64_t Marker::GetEnd() const
-{
-	return at + count * typeSizes[type] + stride * (repeats ? repeats - 1 : 0);
-}
-
-ui::Color4f Marker::GetColor() const
+static ui::Color4f GetColorOfDataType(int type)
 {
 	switch (type)
 	{
@@ -384,15 +386,61 @@ ui::Color4f Marker::GetColor() const
 	}
 }
 
+unsigned Marker::ContainInfo(uint64_t pos, ui::Color4f* col) const
+{
+	if (pos < at)
+		return 0;
+	pos -= at;
+	if (stride)
+	{
+		if (pos >= stride * repeats)
+			return 0;
+		pos %= stride;
+	}
+
+	for (const auto& F : compiled.structs[0]->fields)
+	{
+		int type = FindDataTypeByName(F->typeName);
+		if (type == -1 ||
+			!F->fixedElemCount.HasValue() ||
+			!F->fixedOffset.HasValue())
+			continue;
+
+		auto size = typeSizes[type];
+		uint64_t off = F->fixedOffset.GetValue();
+		uint64_t count = F->fixedElemCount.GetValue();
+		if (pos >= off && pos < off + size * count)
+		{
+			unsigned ret = 1;
+			pos %= size;
+			if (pos == 0)
+				ret |= 2;
+			if (pos == size - 1)
+				ret |= 4;
+			*col = GetColorOfDataType(type);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+uint64_t Marker::GetEnd() const
+{
+	return at + compiled.structs[0]->fixedSize.GetValueOrDefault(0) + stride * (repeats ? repeats - 1 : 0);
+}
+
 
 void MarkerData::AddMarker(DataType dt, Endianness endianness, uint64_t from, uint64_t to)
 {
 	Marker m;
 	{
-		m.type = dt;
-		m.endianness = endianness;
+		m.def = ui::Format("- %s%s", typeNames[dt], endianness == Endianness::Big ? " !be" : "");
+		uint64_t count = (to - from) / typeSizes[dt];
+		if (count > 1)
+			m.def += ui::Format("[%" PRIu64 "]", count);
+		m.compiled.Parse(m.def, true);
 		m.at = from;
-		m.count = (to - from) / typeSizes[dt];
 		m.repeats = 1;
 		m.stride = 0;
 	}
@@ -413,18 +461,27 @@ void MarkerData::Load(const char* key, NamedTextSerializeReader& r)
 		r.BeginDict("");
 
 		Marker M;
-		M.type = DT_CHAR;
-		auto type = r.ReadString("type");
-		for (int i = 0; i < DT__COUNT; i++)
-			if (typeNames[i] == type)
-				M.type = (DataType)i;
-		M.endianness = EndiannessFromString(r.ReadString("endianness"));
+		M.def = r.ReadString("def");
+		if (M.def.empty())
+		{
+			M.def = "- ";
+			auto e = EndiannessFromString(r.ReadString("endianness"));
+			if (e == Endianness::Big)
+				M.def += "!be ";
+			M.def += r.ReadString("type");
+			uint64_t count = r.ReadUInt64("count");
+			if (count != 1)
+				M.def += ui::Format("[%" PRIu64 "]", count);
+#if 0 // TODO
+			M.bitstart = r.ReadUInt("bitstart", 0);
+			M.bitend = r.ReadUInt("bitend", 64);
+#endif
+		}
+		M.compiled.Parse(M.def, true);
+
 		M.at = r.ReadUInt64("at");
-		M.count = r.ReadUInt64("count");
 		M.repeats = r.ReadUInt64("repeats");
 		M.stride = r.ReadUInt64("stride");
-		M.bitstart = r.ReadUInt("bitstart", 0);
-		M.bitend = r.ReadUInt("bitend", 64);
 		M.excludeZeroes = r.ReadBool("excludeZeroes");
 		M.notes = r.ReadString("notes");
 		markers.push_back(M);
@@ -446,14 +503,10 @@ void MarkerData::Save(const char* key, NamedTextSerializeWriter& w)
 	{
 		w.BeginDict("");
 
-		w.WriteString("type", typeNames[M.type]);
-		w.WriteString("endianness", EndiannessToString(M.endianness));
+		w.WriteString("def", M.def);
 		w.WriteInt("at", M.at);
-		w.WriteInt("count", M.count);
 		w.WriteInt("repeats", M.repeats);
 		w.WriteInt("stride", M.stride);
-		w.WriteInt("bitstart", M.bitstart);
-		w.WriteInt("bitend", M.bitend);
 		w.WriteBool("excludeZeroes", M.excludeZeroes);
 		w.WriteString("notes", M.notes);
 
@@ -468,11 +521,9 @@ void MarkerData::Save(const char* key, NamedTextSerializeWriter& w)
 enum COLS_MD
 {
 	MD_COL_At,
-	MD_COL_Type,
-	MD_COL_Count,
+	MD_COL_Definition,
 	MD_COL_Repeats,
 	MD_COL_Stride,
-	MD_COL_BitRange,
 	MD_COL_Notes,
 	MD_COL_Preview,
 
@@ -494,11 +545,9 @@ std::string MarkerDataSource::GetColName(size_t col)
 	switch (col)
 	{
 	case MD_COL_At: return "Offset";
-	case MD_COL_Type: return "Type";
-	case MD_COL_Count: return "Count";
+	case MD_COL_Definition: return "Definition";
 	case MD_COL_Repeats: return "Repeats";
 	case MD_COL_Stride: return "Stride";
-	case MD_COL_BitRange: return "Bit range";
 	case MD_COL_Notes: return "Notes";
 	case MD_COL_Preview: return "Preview";
 	default: return "";
@@ -511,11 +560,9 @@ std::string MarkerDataSource::GetText(size_t row, size_t col)
 	switch (col)
 	{
 	case MD_COL_At: return std::to_string(markers[row].at);
-	case MD_COL_Type: return typeNames[markers[row].type];
-	case MD_COL_Count: return std::to_string(markers[row].count);
+	case MD_COL_Definition: return markers[row].def.substr(0, 32);
 	case MD_COL_Repeats: return std::to_string(markers[row].repeats);
 	case MD_COL_Stride: return std::to_string(markers[row].stride);
-	case MD_COL_BitRange: return std::to_string(markers[row].bitstart) + "-" + std::to_string(markers[row].bitend);
 	case MD_COL_Notes: return markers[row].notes;
 	case MD_COL_Preview: return GetMarkerPreview(markers[row], dataSource, 32);
 	default: return "";
@@ -554,18 +601,15 @@ void MarkedItemEditor::Build()
 
 	ui::Push<ui::FrameElement>().SetDefaultFrameStyle(ui::DefaultFrameStyle::GroupBox);
 	ui::Push<ui::StackTopDownLayoutElement>();
-	ui::imm::PropDropdownMenuList("Type", marker->type, ui::BuildAlloc<ui::CStrArrayOptionList>(typeNames));
-	ui::imm::PropDropdownMenuList("Endianness", marker->endianness, ui::BuildAlloc<ui::ZeroSepCStrOptionList>("Little\0Big\0"));
+	if (ui::imm::EditString(marker->def.c_str(), [this](const char* v) { marker->def = v; }))
+	{
+		BDSScript s;
+		if (s.Parse(marker->def, true))
+			marker->compiled = std::move(s);
+	}
 	ui::imm::PropEditInt("Offset", marker->at);
-	ui::imm::PropEditInt("Count", marker->count, { ui::AddLabelTooltip("The number of elements within a single packed array") });
 	ui::imm::PropEditInt("Repeats", marker->repeats, { ui::AddLabelTooltip(">1 turns on analysis across repeats instead of packed array") });
 	ui::imm::PropEditInt("Stride", marker->stride, { ui::AddLabelTooltip("Distance in bytes between arrays of elements") });
-	unsigned bs = marker->bitstart;
-	if (ui::imm::PropEditInt("Start bit", bs, {}, 1U, { 0U, 64U }))
-		marker->bitstart = bs;
-	unsigned be = marker->bitend;
-	if (ui::imm::PropEditInt("End bit", be, {}, 1U, { 0U, 64U }))
-		marker->bitend = be;
 	ui::imm::PropEditBool("Exclude zeroes", marker->excludeZeroes, { ui::AddLabelTooltip("Whether to ignore zeroes during analysis") });
 	ui::imm::PropEditString("Notes", marker->notes.c_str(), [this](const char* v) { marker->notes = v; });
 	ui::Pop();
@@ -576,22 +620,49 @@ void MarkedItemEditor::Build()
 	if (ui::imm::Button("Analyze"))
 	{
 		analysisData.results.clear();
-		if (marker->repeats <= 1)
+		if (marker->repeats <= 1 &&
+			marker->compiled.structs[0]->fields.size() == 1 &&
+			marker->compiled.structs[0]->fields[0]->fixedElemCount.HasValue())
 		{
-			// analyze a single array
-			analysisData.results.push_back(analysisFuncs[marker->type](dataSource, marker->endianness, marker->at, typeSizes[marker->type],
-				marker->count, marker->bitstart, marker->bitend, marker->excludeZeroes));
+			for (;;)
+			{
+				// analyze a single array
+				const auto& F = marker->compiled.structs[0]->fields[0];
+
+				int type = FindDataTypeByName(F->typeName);
+				if (type == -1 ||
+					!F->fixedElemCount.HasValue() ||
+					!F->fixedOffset.HasValue())
+					continue;
+
+				analysisData.results.push_back(analysisFuncs[type](dataSource, F->endianness, marker->at + F->fixedOffset.GetValue(),
+					typeSizes[type], F->fixedElemCount.GetValue(), F->valueMask, marker->excludeZeroes));
+
+				break;
+			}
 		}
 		else
 		{
 			// analyze each array element separately
-			for (uint64_t i = 0; i < marker->count; i++)
+			for (const auto& F : marker->compiled.structs[0]->fields)
 			{
-				analysisData.results.push_back(analysisFuncs[marker->type](dataSource, marker->endianness, marker->at + i * typeSizes[marker->type],
-					marker->stride, marker->repeats, marker->bitstart, marker->bitend, marker->excludeZeroes));
+				int type = FindDataTypeByName(F->typeName);
+				if (type == -1 ||
+					!F->fixedElemCount.HasValue() ||
+					!F->fixedOffset.HasValue())
+					continue;
+
+				uint64_t count = F->fixedElemCount.GetValue();
+				for (uint64_t i = 0; i < count; i++)
+				{
+					uint64_t off = marker->at + F->fixedOffset.GetValue() + i * typeSizes[type];
+					analysisData.results.push_back(analysisFuncs[type](dataSource, F->endianness, off,
+						marker->stride, marker->repeats, F->valueMask, marker->excludeZeroes));
+				}
 			}
 		}
 	}
+#if 0 // TODO
 	if (marker->type == DT_F32 && marker->count == 3 && marker->repeats > 1 && ui::imm::Button("Export points to .obj"))
 	{
 		if (FILE* fp = fopen("positions.obj", "w"))
@@ -628,6 +699,7 @@ void MarkedItemEditor::Build()
 			fclose(fp);
 		}
 	}
+#endif
 	if (ui::imm::Button("Export data to CSV"))
 	{
 		if (FILE* fp = fopen("marker.csv", "w"))
@@ -671,9 +743,13 @@ void MarkedItemsList::Build()
 	{
 		ui::Push<ui::FrameElement>().SetDefaultFrameStyle(ui::DefaultFrameStyle::GroupBox);
 		ui::Push<ui::StackTopDownLayoutElement>();
-		ui::imm::PropDropdownMenuList("Type", m.type, ui::BuildAlloc<ui::CStrArrayOptionList>(typeNames));
+		if (ui::imm::EditString(m.def.c_str(), [&m](const char* v) { m.def = v; }))
+		{
+			BDSScript s;
+			if (s.Parse(m.def, true))
+				m.compiled = std::move(s);
+		}
 		ui::imm::PropEditInt("Offset", m.at);
-		ui::imm::PropEditInt("Count", m.count);
 		ui::imm::PropEditInt("Repeats", m.repeats);
 		ui::imm::PropEditInt("Stride", m.stride);
 		ui::Pop();

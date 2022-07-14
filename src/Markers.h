@@ -2,6 +2,7 @@
 #pragma once
 #include "pch.h"
 #include "FileReaders.h"
+#include "StructScript.h"
 
 
 enum DataType
@@ -58,21 +59,17 @@ struct AnalysisData : ui::TableDataSource
 
 struct Marker
 {
-	DataType type;
-	Endianness endianness = Endianness::Little;
-	uint8_t bitstart = 0;
-	uint8_t bitend = 64;
+	std::string def;
+	BDSScript compiled;
+
 	bool excludeZeroes = false;
 	uint64_t at;
-	uint64_t count;
 	uint64_t repeats;
 	uint64_t stride;
 	std::string notes;
 
-	bool Contains(uint64_t pos) const;
-	unsigned ContainInfo(uint64_t pos) const; // 1 - overlap, 2 - left edge, 4 - right edge
+	unsigned ContainInfo(uint64_t pos, ui::Color4f* col) const; // 1 - overlap, 2 - left edge, 4 - right edge
 	uint64_t GetEnd() const;
-	ui::Color4f GetColor() const;
 };
 extern ui::MulticastDelegate<const Marker*> OnMarkerChange;
 

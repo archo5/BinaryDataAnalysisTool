@@ -22,6 +22,7 @@
     <ClCompile Include="ExportScript.cpp" />
     <ClCompile Include="MeshScript.cpp" />
     <ClCompile Include="MeshEditor.cpp" />
+    <ClCompile Include="StructScript.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -46,6 +47,7 @@
     <ClInclude Include="MeshScript.h" />
     <ClInclude Include="MeshEditor.h" />
     <ClInclude Include="Common.h" />
+    <ClInclude Include="StructScript.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="plugins">

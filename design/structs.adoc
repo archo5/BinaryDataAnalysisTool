@@ -1,0 +1,107 @@
+
+# Structure parsing
+
+## Features of interest / 2022-07-12
+
+* Less clicking/individual field entry/going between struct and field tabs
+* Inline structures, editing groups of structures
+* Gaps between serialized fields
+* Built-in vector types
+* Visualizing enumerations
+
+Decisions:
+
+* Using a text editor to define structures
+* All structures are in the shared namespace unless noted differently
+* Syntax: line-based, simplify parsing as much as possible, avoiding shift-keys to ease typing
+
+Syntax:
+
+*comment* = `# ...`
+
+*identifier (id)* = `[a-zA-Z_][a-zA-Z0-9_]*`
+
+*expression (expr)* = a string that is limited by other syntax and later parsed by MathExpr
+
+* the expression can bypass complex parsing and evaluate more directly/quickly if
+** the expression is a single identifier (field or parameter)
+** the expression is a number
+
+`end` - define the end of a semantic scope (struct / conditional chain)
+
+`if <expr>` - begin a conditional block
+
+`elif <expr> / else` - begin a conditional block that only executes if the chain so far has no true conditions
+
+`struct <name:id>` - define a structure (terminated with end)
+
+`param <name:id> [<value:int64>]` - define an input parameter for the struct
+
+`size <expr>` - specify the size of the structure
+
+`expr <name:id> <expr>` - specify a virtual field that is computed from parameters or previous fields
+
+`field / "-" ...` - define a field
+|===
+a|
+`[ "!" <attr:id> ]*` - attributes +
+`<type:id>` - the core type +
+`[ "[" <count:expr> "]" ]` - array size +
+`[ <name:id> ]` - field name +
+`[ "@" <offset:uint> / "@={" <offexpr:expr> "}" ]` - offset
+
+* `type` is one of the built-in types or the name of a structure
+** built-ins: char, i/u[8, 16, 32, 64], f[32, 64]
+* `attr` examples:
+** `be` - big endian
+** `le` - little endian
+** `nullterm` - read until 0
+** `sized` - array "count" is max size
+** `inline` - expand the struct when visualizing
+
+Examples:
+
+* `field float[3] pos` - a 3D float vector (position)
+* `field Vec3 pos @ 8` - a 3D float position vector using a structure, at offset 8
+* `field !nullterm char[64] name` - 64 bytes that hold a 0-terminated string
+* `field !sized Chunk[size - 8] contents` - contents of a chunk that contain other chunks (size includes header)
+|===
+
+`fieldarg <name:id> <expr>` - specify an argument for the previous field
+
+`ptr ...` - define a pointer
+|===
+a|
+`[ "!" <attr:id> ]*` - attributes +
+`<type:id>` - the core type (integer / `computed`) +
+`[ "[" <count:expr> "]" ]` - array size +
+`[ <name:id> ]` - pointer name +
+`"if" { <expr> }` - a condition to determine if there's an item behind the pointer +
+`"to" <field-w/o-prefix>` - the field to read at the location
+
+* a `computed` type does not allow specifying an array size and requires a computed offset (index is passed to the expressions)
+|===
+
+Complete examples:
+
+[source,c]
+----
+# not actually needed in the final version, f32x3 or such could be used
+struct Vec3
+- float x
+- float y
+- float z
+end
+
+struct Entity
+- !nullterm char[32] name
+- u32 type
+- Vec3 pos
+- Vec3 rot
+- Vec3 scale
+ptr !nullterm u32[4] groups if { (value & (1<<31)) == 0 } to !nullterm char[32] group
+if type = 1
+- float[10] data
+end
+end
+----

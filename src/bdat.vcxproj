@@ -186,6 +186,7 @@
     <ClInclude Include="MeshEditor.h" />
     <ClInclude Include="MeshScript.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="StructScript.h" />
     <ClInclude Include="TabHighlights.h" />
     <ClInclude Include="TabImages.h" />
     <ClInclude Include="TabInspect.h" />
@@ -215,6 +216,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="StructScript.cpp" />
     <ClCompile Include="TabHighlights.cpp" />
     <ClCompile Include="TabImages.cpp" />
     <ClCompile Include="TabInspect.cpp" />

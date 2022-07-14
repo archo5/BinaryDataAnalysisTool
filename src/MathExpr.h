@@ -106,10 +106,13 @@ struct MathExpr
 {
 	MathExpr() {}
 	~MathExpr();
+	MathExpr(MathExpr&& o) : _impl(o._impl) { o._impl = nullptr; }
 	MathExpr(const MathExpr&) = delete;
 
 	void Compile(const char* expr);
 	int64_t Evaluate(IVariableSource* vsrc);
+	bool IsConstant();
+	ui::Optional<int64_t> GetConstant();
 	std::string GenPyScript();
 
 	struct CompiledMathExpr* _impl = nullptr;
@@ -141,6 +144,8 @@ struct MathExprObj
 		expr = ne;
 		Recompile();
 	}
+	bool IsConstant() const { return inst ? inst->IsConstant() : true; }
+	ui::Optional<int64_t> GetConstant() const { return inst ? inst->GetConstant() : 0; }
 	std::string GenPyScript() const
 	{
 		return inst ? inst->GenPyScript() : "0";

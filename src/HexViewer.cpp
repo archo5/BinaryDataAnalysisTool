@@ -186,9 +186,9 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 			se = numBytes;
 		for (size_t i = ss; i < se; i++)
 		{
-			if (unsigned flags = M.ContainInfo(basePos + i))
+			ui::Color4f mc;
+			if (unsigned flags = M.ContainInfo(basePos + i, &mc))
 			{
-				auto mc = M.GetColor();
 				auto& oc = outColors[i];
 				oc.asciiColor.BlendOver(mc);
 				oc.hexColor.BlendOver(mc);

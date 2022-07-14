@@ -10,6 +10,7 @@ struct ValueNode
 	virtual int64_t Eval(IVariableSource*) const = 0;
 	virtual void Dump(int level) const = 0;
 	virtual std::string GenPyScript() const = 0;
+	virtual bool IsConstant() const = 0;
 };
 
 static void DMPLEV(int level)
@@ -23,6 +24,7 @@ struct ErrorNode : ValueNode
 	int64_t Eval(IVariableSource*) const override { return 0; }
 	void Dump(int level) const override { DMPLEV(level); fprintf(stderr, "ERROR\n"); }
 	std::string GenPyScript() const override { return "ERROR"; }
+	bool IsConstant() const override { return true; }
 };
 
 struct ConstantNode : ValueNode
@@ -30,6 +32,7 @@ struct ConstantNode : ValueNode
 	int64_t Eval(IVariableSource*) const override { return value; }
 	void Dump(int level) const override { DMPLEV(level); fprintf(stderr, "value = %" PRId64 "\n", value); }
 	std::string GenPyScript() const override { return "(" + std::to_string(value) + ")"; }
+	bool IsConstant() const override { return true; }
 
 	int64_t value = 0;
 };
@@ -47,6 +50,7 @@ struct UnaryOpNode : ValueNode
 		fprintf(stderr, "%s\n", Name());
 		src->Dump(level + 1);
 	}
+	bool IsConstant() const override { return src->IsConstant(); }
 
 	ValueNode* src = nullptr;
 };
@@ -80,6 +84,7 @@ struct BinaryOpNode : ValueNode
 		srcA->Dump(level + 1);
 		srcB->Dump(level + 1);
 	}
+    bool IsConstant() const override { return srcA->IsConstant() && srcB->IsConstant(); }
 
 	ValueNode* srcA = nullptr;
 	ValueNode* srcB = nullptr;
@@ -201,6 +206,7 @@ struct ReadNodeBase : ValueNode
 		srcOff->Dump(level + 1);
 	}
 	std::string GenPyScript() const override { return std::string("vs.read_file(\"") + Name() + "\", " + srcOff->GenPyScript() + ")"; }
+	bool IsConstant() const override { return false; }
 
 	ValueNode* srcOff = nullptr;
 };
@@ -416,6 +422,7 @@ struct MemberFieldNode : ValueNode
 			+ "\", " + (index ? index->GenPyScript() : "0")
 			+ ", " + (isOffset ? "True" : "False") + ")";
 	}
+	bool IsConstant() const override { return false; }
 
 	StructQueryNode* query = nullptr;
 	ValueNode* index = nullptr;
@@ -442,6 +449,7 @@ struct StructOffsetNode : ValueNode
 			query->Dump(level + 1);
 	}
 	std::string GenPyScript() const override { return "bdat.me_structoff(vs, " + (query ? query->GenPyScript() : "[self]") + ")"; }
+	bool IsConstant() const override { return false; }
 
 	StructQueryNode* query = nullptr;
 };
@@ -479,6 +487,7 @@ struct FieldPreviewEqualsStringNode : ValueNode
 	{
 		return "bdat.me_fpeqs(vs, " + (query ? query->GenPyScript() : "[self]") + ", \"" + fieldName + "\", b\"" + text + "\"" + (invert ? "True" : "False") + ")";
 	}
+	bool IsConstant() const override { return false; }
 
 	StructQueryNode* query;
 	std::string fieldName;
@@ -507,6 +516,7 @@ struct InstanceIDNode : ValueNode
 	{
 		return "TODO";
 	}
+	bool IsConstant() const override { return false; }
 
 	StructQueryNode* query;
 };
@@ -520,6 +530,8 @@ struct CompiledMathExpr
 	}
 
 	ValueNode* root;
+	int64_t constantValue = 0;
+	bool isConstant = true;
 };
 
 
@@ -1372,6 +1384,9 @@ void MathExpr::Compile(const char* expr)
 	//c.Dump();
 	_impl = new CompiledMathExpr;
 	_impl->root = c.root;
+	_impl->isConstant = c.root->IsConstant();
+	if (_impl->isConstant)
+		_impl->constantValue = c.root->Eval(nullptr);
 }
 
 int64_t MathExpr::Evaluate(IVariableSource* vsrc)
@@ -1379,6 +1394,22 @@ int64_t MathExpr::Evaluate(IVariableSource* vsrc)
 	if (!_impl || !_impl->root)
 		return 0;
 	return _impl->root->Eval(vsrc);
+}
+
+bool MathExpr::IsConstant()
+{
+	if (!_impl)
+		return true;
+	return _impl->isConstant;
+}
+
+ui::Optional<int64_t> MathExpr::GetConstant()
+{
+	if (!_impl)
+		return int64_t(0);
+	if (_impl->isConstant)
+		return _impl->constantValue;
+	return {};
 }
 
 std::string MathExpr::GenPyScript()
