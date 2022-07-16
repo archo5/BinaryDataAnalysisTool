@@ -241,11 +241,12 @@ static const char* markerReadCodes[] =
 	"%g",
 	"%g",
 };
-typedef void MarkerReadFunc(std::string& outbuf, IDataSource* ds, uint64_t off, const BDSSFastMask& mask);
-template <class T, DataType ty> void MarkerReadFuncImpl(std::string& outbuf, IDataSource* ds, uint64_t off, const BDSSFastMask& mask)
+typedef void MarkerReadFunc(std::string& outbuf, IDataSource* ds, Endianness en, uint64_t off, const BDSSFastMask& mask);
+template <class T, DataType ty> void MarkerReadFuncImpl(std::string& outbuf, IDataSource* ds, Endianness en, uint64_t off, const BDSSFastMask& mask)
 {
 	T val;
 	ds->Read(off, sizeof(T), &val);
+	EndiannessAdjust(val, en);
 	ApplyMaskExtend(val, mask);
 	char bfr[128];
 	snprintf(bfr, 128, markerReadCodes[ty], val);
@@ -314,7 +315,7 @@ std::string GetMarkerPreview(const Marker& marker, IDataSource* src, size_t maxL
 						text += ',';
 
 					any = true;
-					markerReadFuncs[type](text, src, off, F->valueMask);
+					markerReadFuncs[type](text, src, F->endianness, off, F->valueMask);
 					if (text.size() > maxLen)
 					{
 						text.erase(text.begin() + 32, text.end());
@@ -355,7 +356,7 @@ std::string GetMarkerSingleLine(const Marker& marker, IDataSource* src, size_t w
 			else if (type != DT_CHAR)
 				text += ',';
 
-			markerReadFuncs[type](text, src, off + j * typeSizes[type], F->valueMask);
+			markerReadFuncs[type](text, src, F->endianness, off + j * typeSizes[type], F->valueMask);
 		}
 	}
 	return text;
