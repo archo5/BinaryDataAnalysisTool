@@ -30,6 +30,7 @@ struct BDSSField : ui::RefCountedST
 	Endianness endianness = Endianness::Little;
 	BDSSFastMask valueMask = { ~0ULL, 0, 0 };
 	bool readUntil0 = false;
+	bool excludeZeroes = false;
 	bool countIsMaxSize = false;
 };
 

@@ -58,6 +58,7 @@ a|
 ** `nullterm` - read until 0
 ** `sized` - array "count" is max size
 ** `inline` - expand the struct when visualizing
+** `bitrange(<uint>,<uint>)` - unset bits outside the given range
 
 Examples:
 

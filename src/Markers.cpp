@@ -275,6 +275,7 @@ std::string GetMarkerPreview(const Marker& marker, IDataSource* src, size_t maxL
 			text += '/';
 
 		bool first = true;
+		bool any = false;
 		for (const auto& F : marker.compiled.structs[0]->fields)
 		{
 			int type = FindDataTypeByName(F->typeName);
@@ -304,6 +305,7 @@ std::string GetMarkerPreview(const Marker& marker, IDataSource* src, size_t maxL
 				if (j > 0 && type != DT_CHAR)
 					text += ',';
 
+				any = true;
 				markerReadFuncs[type](text, src, off + j * typeSizes[type], F->valueMask);
 				if (text.size() > maxLen)
 				{
@@ -313,6 +315,9 @@ std::string GetMarkerPreview(const Marker& marker, IDataSource* src, size_t maxL
 				}
 			}
 		}
+		// no valid fields
+		if (!any)
+			return "-";
 	}
 	return text;
 }
@@ -468,21 +473,22 @@ void MarkerData::Load(const char* key, NamedTextSerializeReader& r)
 			auto e = EndiannessFromString(r.ReadString("endianness"));
 			if (e == Endianness::Big)
 				M.def += "!be ";
+			if (r.ReadBool("excludeZeroes"))
+				M.def += "!excl0 ";
+			unsigned bitstart = r.ReadUInt("bitstart", 0);
+			unsigned bitend = r.ReadUInt("bitend", 64);
+			if (bitstart != 0 || bitend != 64)
+				M.def += ui::Format("!bitend(%u,%u) ", bitstart, bitend);
 			M.def += r.ReadString("type");
 			uint64_t count = r.ReadUInt64("count");
 			if (count != 1)
 				M.def += ui::Format("[%" PRIu64 "]", count);
-#if 0 // TODO
-			M.bitstart = r.ReadUInt("bitstart", 0);
-			M.bitend = r.ReadUInt("bitend", 64);
-#endif
 		}
 		M.compiled.Parse(M.def, true);
 
 		M.at = r.ReadUInt64("at");
 		M.repeats = r.ReadUInt64("repeats");
 		M.stride = r.ReadUInt64("stride");
-		M.excludeZeroes = r.ReadBool("excludeZeroes");
 		M.notes = r.ReadString("notes");
 		markers.push_back(M);
 
@@ -507,7 +513,6 @@ void MarkerData::Save(const char* key, NamedTextSerializeWriter& w)
 		w.WriteInt("at", M.at);
 		w.WriteInt("repeats", M.repeats);
 		w.WriteInt("stride", M.stride);
-		w.WriteBool("excludeZeroes", M.excludeZeroes);
 		w.WriteString("notes", M.notes);
 
 		w.EndDict();
@@ -601,16 +606,18 @@ void MarkedItemEditor::Build()
 
 	ui::Push<ui::FrameElement>().SetDefaultFrameStyle(ui::DefaultFrameStyle::GroupBox);
 	ui::Push<ui::StackTopDownLayoutElement>();
-	if (ui::imm::EditString(marker->def.c_str(), [this](const char* v) { marker->def = v; }))
+
+	ui::MakeWithText<ui::PaddingElement>("Definition").SetPadding(5);
+	if (ui::imm::EditStringMultiline(marker->def.c_str(), [this](const char* v) { marker->def = v; }))
 	{
 		BDSScript s;
 		if (s.Parse(marker->def, true))
 			marker->compiled = std::move(s);
 	}
+
 	ui::imm::PropEditInt("Offset", marker->at);
 	ui::imm::PropEditInt("Repeats", marker->repeats, { ui::AddLabelTooltip(">1 turns on analysis across repeats instead of packed array") });
 	ui::imm::PropEditInt("Stride", marker->stride, { ui::AddLabelTooltip("Distance in bytes between arrays of elements") });
-	ui::imm::PropEditBool("Exclude zeroes", marker->excludeZeroes, { ui::AddLabelTooltip("Whether to ignore zeroes during analysis") });
 	ui::imm::PropEditString("Notes", marker->notes.c_str(), [this](const char* v) { marker->notes = v; });
 	ui::Pop();
 	ui::Pop();
@@ -636,7 +643,7 @@ void MarkedItemEditor::Build()
 					continue;
 
 				analysisData.results.push_back(analysisFuncs[type](dataSource, F->endianness, marker->at + F->fixedOffset.GetValue(),
-					typeSizes[type], F->fixedElemCount.GetValue(), F->valueMask, marker->excludeZeroes));
+					typeSizes[type], F->fixedElemCount.GetValue(), F->valueMask, F->excludeZeroes));
 
 				break;
 			}
@@ -657,7 +664,7 @@ void MarkedItemEditor::Build()
 				{
 					uint64_t off = marker->at + F->fixedOffset.GetValue() + i * typeSizes[type];
 					analysisData.results.push_back(analysisFuncs[type](dataSource, F->endianness, off,
-						marker->stride, marker->repeats, F->valueMask, marker->excludeZeroes));
+						marker->stride, marker->repeats, F->valueMask, F->excludeZeroes));
 				}
 			}
 		}

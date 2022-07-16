@@ -62,7 +62,6 @@ struct Marker
 	std::string def;
 	BDSScript compiled;
 
-	bool excludeZeroes = false;
 	uint64_t at;
 	uint64_t repeats;
 	uint64_t stride;

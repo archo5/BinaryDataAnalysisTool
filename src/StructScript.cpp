@@ -149,7 +149,7 @@ struct BDSSParser
 		{
 			BDSSParam p;
 			p.name = ui::to_string(ReadIdent());
-			p.value = (int64_t)line.take_float64(); // TODO create int64 fn
+			p.value = line.take_int64();
 			stc->params.push_back(std::move(p));
 		}
 		else if (ConsumeKeyword("size"))
@@ -172,8 +172,19 @@ struct BDSSParser
 					fld->endianness = Endianness::Little;
 				else if (attr == "nullterm")
 					fld->readUntil0 = true;
+				else if (attr == "excl0")
+					fld->excludeZeroes = true;
 				else if (attr == "sized")
 					fld->countIsMaxSize = true;
+				else if (attr == "bitrange")
+				{
+					ConsumePrefix("(");
+					auto start = line.take_int32();
+					ConsumePrefix(",");
+					auto end = line.take_int32();
+					ConsumePrefix(")");
+					fld->valueMask = MaskFromStartEnd(start, end);
+				}
 			}
 
 			// type
@@ -219,7 +230,7 @@ struct BDSSParser
 			else if (ConsumePrefix("@"))
 			{
 				// number offset
-				int64_t off = (int64_t)line.take_float64(); // TODO create int64 fn
+				int64_t off = line.take_int64();
 				fld->offsetExpr.Compile(std::to_string(off).c_str());
 				fld->fixedOffset = fld->offsetExpr.GetConstant().StaticCast<uint64_t>();
 				line = line.ltrim();
