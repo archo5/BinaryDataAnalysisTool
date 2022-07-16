@@ -77,6 +77,7 @@ struct HexViewer : ui::FillerElement
 	{
 		ui::FillerElement::OnReset();
 
+		flags |= ui::UIObject_IsFocusable | ui::UIObject_DB_FocusOnLeftClick;
 		contentFont.family = ui::FONT_FAMILY_MONOSPACE;
 	}
 	void OnEvent(ui::Event& e) override;

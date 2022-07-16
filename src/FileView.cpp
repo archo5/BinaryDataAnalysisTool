@@ -14,6 +14,8 @@ void FileView::Build()
 {
 	ui::Push<ui::EdgeSliceLayoutElement>();
 
+	ui::BuildMulticastDelegateAddNoArgs(OnHexViewerStateChanged, [this]() { Rebuild(); });
+
 	ui::Push<ui::StackLTRLayoutElement>();
 	{
 		char buf[256];

@@ -143,7 +143,7 @@ struct RGBAParserConfigData
 	int bytesPerPixelRGBA = 4;
 	Endianness endianness = Endianness::Little;
 	int bitsR = 8, bitsG = 8, bitsB = 8, bitsA = 0, bitsL = 8;
-	int shiftR = 24, shiftG = 16, shiftB = 8, shiftA = 0, shiftL = 0;
+	int shiftR = 0, shiftG = 8, shiftB = 16, shiftA = 24, shiftL = 0;
 
 	bool IsEquivalentTo(const RGBAParserConfigData& o)
 	{
@@ -227,9 +227,9 @@ static const RGBAParserPreset g_rgbaParserPresets[] =
 {
 	{ "G8", RGBAParserConfigData().Gray(1, 8, 0) },
 	{ "RGBA8", {} }, // same as defaults
-	{ "BGRA8", RGBAParserConfigData().R(8, 8).B(8, 24) },
-	{ "ARGB8", RGBAParserConfigData().A(8, 24).R(8, 16).G(8, 8).B(8, 0) },
-	{ "ABGR8", RGBAParserConfigData().A(8, 24).B(8, 16).G(8, 8).R(8, 0) },
+	{ "BGRA8", RGBAParserConfigData().R(8, 16).B(8, 0) },
+	{ "ARGB8", RGBAParserConfigData().A(8, 0).R(8, 8).G(8, 16).B(8, 24) },
+	{ "ABGR8", RGBAParserConfigData().A(8, 0).B(8, 8).G(8, 16).R(8, 24) },
 	{ "R5G6B5", RGBAParserConfigData().RGBA(2).R(5, 0).G(6, 5).B(5, 11).A(0, 0) },
 	{ "[PSX] RGB5A1", RGBAParserConfigData().RGBA(2).R(5, 0).G(5, 5).B(5, 10).A(1, 15).F(RGBAParserConfigData::BlackOnlyAlpha) },
 };

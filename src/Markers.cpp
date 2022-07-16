@@ -744,7 +744,7 @@ void MarkedItemEditor::Build()
 			!F->fixedOffset.HasValue())
 			continue;
 
-		size_t id = &F - &fields.back();
+		size_t id = &F - &fields.front();
 		if (F->dimX == 2)
 		{
 			std::string name = ui::Format("[%zu] %s", id, F->typeName.c_str());

@@ -251,7 +251,7 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 		}
 	}
 
-	if (hs->enableFloat32 || hs->enableInt32 || hs->enableNearFileSize32 || !hs->customInt32.empty())
+	if (!hs->customInt32.empty())
 	{
 		for (size_t i = 0; i + 4 < numBytes; i++)
 		{
@@ -263,31 +263,40 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 			if (hs->excludeZeroes && bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 0 && bytes[i + 3] == 0)
 				continue;
 
-			bool detected = false;
-
 			int32_t i32v;
 			memcpy(&i32v, &bytes[i], 4);
 			EndiannessAdjust(i32v, endianness);
 
-			if (!hs->customInt32.empty())
+			for (const auto& h : hs->customInt32)
 			{
-				for (const auto& h : hs->customInt32)
+				if (!h.enabled)
+					continue;
+				if (!h.range ? h.vspec == i32v :
+					h.vmin <= i32v && i32v <= h.vmax)
 				{
-					if (!h.enabled)
-						continue;
-					if (!h.range ? h.vspec == i32v :
-						h.vmin <= i32v && i32v <= h.vmax)
-					{
-						for (int j = 0; j < 4; j++)
-							outColors[i + j].hexColor.BlendOver(h.color);
-						detected = true;
-						break;
-					}
+					for (int j = 0; j < 4; j++)
+						outColors[i + j].hexColor.BlendOver(h.color);
+					break;
 				}
 			}
+		}
+	}
 
-			if (detected)
+	if (hs->enableFloat32 || hs->enableInt32 || hs->enableNearFileSize32)
+	{
+		for (size_t i = 0; i + 4 < numBytes; i++)
+		{
+			if (outColors[i].hexColor.a ||
+				outColors[i + 1].hexColor.a ||
+				outColors[i + 2].hexColor.a ||
+				outColors[i + 3].hexColor.a)
 				continue;
+			if (hs->excludeZeroes && bytes[i] == 0 && bytes[i + 1] == 0 && bytes[i + 2] == 0 && bytes[i + 3] == 0)
+				continue;
+
+			int32_t i32v;
+			memcpy(&i32v, &bytes[i], 4);
+			EndiannessAdjust(i32v, endianness);
 
 			if (hs->enableFloat32)
 			{
@@ -371,6 +380,28 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 }
 
 
+static void MoveSelection(HexViewer* hv, ui::Event& e, int64_t pos)
+{
+	if (pos < 0)
+		pos = 0;
+	int64_t size = hv->file->dataSource->GetSize();
+	if (pos > size)
+		pos = size;
+	hv->state->selectionEnd = pos;
+	if (!e.GetKeyActionModifier())
+		hv->state->selectionStart = pos;
+
+	auto w = hv->state->byteWidth;
+	size_t ph = ui::max(size_t(floor(hv->GetFinalRect().GetHeight() / (hv->contentFont.size + 4)) - 2), size_t(0));
+
+	if (hv->state->basePos > ui::max(pos - w, 0LL))
+		hv->state->basePos = ui::max((pos - w) / w * w, 0LL);
+	if (hv->state->basePos < ui::max(pos - ph * w, 0LL))
+		hv->state->basePos = ui::max((pos / w - ph) * w, 0LL);
+
+	OnHexViewerStateChanged.Call(hv->state);
+}
+
 void HexViewer::OnEvent(ui::Event& e)
 {
 	int W = state->byteWidth;
@@ -420,14 +451,14 @@ void HexViewer::OnEvent(ui::Event& e)
 		if (state->mouseDown)
 		{
 			state->selectionEnd = state->hoverByte;
+			OnHexViewerStateChanged.Call(state);
 		}
-		OnHexViewerStateChanged.Call(state);
 	}
 	else if (e.type == ui::EventType::MouseLeave)
 	{
 		state->hoverSection = -1;
 		state->hoverByte = UINT64_MAX;
-		OnHexViewerStateChanged.Call(state);
+		//OnHexViewerStateChanged.Call(state);
 	}
 	else if (e.type == ui::EventType::MouseScroll)
 	{
@@ -438,6 +469,32 @@ void HexViewer::OnEvent(ui::Event& e)
 			state->basePos -= diff;
 		state->basePos = std::min(file->dataSource->GetSize() - 1, state->basePos);
 		OnHexViewerStateChanged.Call(state);
+	}
+	else if (e.type == ui::EventType::KeyAction)
+	{
+		auto p = state->selectionEnd;
+		auto w = state->byteWidth;
+		size_t ph = ui::max(size_t(floor(GetFinalRect().GetHeight() / (contentFont.size + 4)) - 2), size_t(0));
+		switch (e.GetKeyAction())
+		{
+		case ui::KeyAction::PageUp:
+			state->basePos = std::max(0LL, int64_t(state->basePos) - ph * w);
+			OnHexViewerStateChanged.Call(state);
+			break;
+		case ui::KeyAction::PageDown:
+			state->basePos = std::max(0LL, int64_t(state->basePos) + ph * w);
+			OnHexViewerStateChanged.Call(state);
+			break;
+
+		case ui::KeyAction::PrevLetter: MoveSelection(this, e, p - 1); break;
+		case ui::KeyAction::NextLetter: MoveSelection(this, e, p + 1); break;
+		case ui::KeyAction::GoToLineStart: MoveSelection(this, e, p - (p % w)); break;
+		case ui::KeyAction::GoToLineEnd: MoveSelection(this, e, p + w - (p % w) - 1); break;
+		case ui::KeyAction::GoToStart: MoveSelection(this, e, 0); break;
+		case ui::KeyAction::GoToEnd: MoveSelection(this, e, INT64_MAX); break;
+		case ui::KeyAction::Up: MoveSelection(this, e, p - w); break;
+		case ui::KeyAction::Down: MoveSelection(this, e, p + w); break;
+		}
 	}
 }
 
