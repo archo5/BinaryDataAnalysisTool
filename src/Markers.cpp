@@ -515,7 +515,7 @@ void MarkerData::Load(const char* key, NamedTextSerializeReader& r)
 			unsigned bitstart = r.ReadUInt("bitstart", 0);
 			unsigned bitend = r.ReadUInt("bitend", 64);
 			if (bitstart != 0 || bitend != 64)
-				M.def += ui::Format("!bitend(%u,%u) ", bitstart, bitend);
+				M.def += ui::Format("!bitrange(%u,%u) ", bitstart, bitend);
 			uint64_t count = r.ReadUInt64("count");
 			if (count > 1 && count <= 4)
 				M.def += ui::Format("!v%d ", int(count));
