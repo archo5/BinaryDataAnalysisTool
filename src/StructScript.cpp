@@ -176,6 +176,16 @@ struct BDSSParser
 					fld->excludeZeroes = true;
 				else if (attr == "sized")
 					fld->countIsMaxSize = true;
+				else if (attr.size() == 2 && attr.starts_with("v") && attr[1] >= '1' && attr[1] <= '4')
+				{
+					fld->dimX = attr[1] - '0';
+					fld->dimY = 1;
+				}
+				else if (attr.size() == 3 && attr.starts_with("m") && attr[1] >= '1' && attr[1] <= '4' && attr[2] >= '1' && attr[2] <= '4')
+				{
+					fld->dimX = attr[1] - '0';
+					fld->dimY = attr[2] - '0';
+				}
 				else if (attr == "bitrange")
 				{
 					ConsumePrefix("(");
@@ -240,6 +250,13 @@ struct BDSSParser
 				fld->fixedOffset = offStc;
 			}
 
+			if (fld->typeName == "char")
+			{
+				// TODO error if char vector/matrix
+				fld->dimX = 1;
+				fld->dimY = 1;
+			}
+
 			if (fld->fixedOffset.HasValue() && fld->fixedElemCount.HasValue())
 			{
 				uint64_t size = 0;
@@ -250,7 +267,7 @@ struct BDSSParser
 				else if (t == "i32" || t == "u32" || t == "f32") size = 4;
 				else if (t == "i64" || t == "u64") size = 8;
 
-				offStc = fld->fixedOffset.GetValue() + size * fld->fixedElemCount.GetValue();
+				offStc = fld->fixedOffset.GetValue() + size * fld->fixedElemCount.GetValue() * fld->dimX * fld->dimY;
 			}
 			else
 				isConstantStructSize = false;

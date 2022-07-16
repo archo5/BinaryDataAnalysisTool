@@ -305,14 +305,27 @@ std::string GetMarkerPreview(const Marker& marker, IDataSource* src, size_t maxL
 				if (j > 0 && type != DT_CHAR)
 					text += ',';
 
-				any = true;
-				markerReadFuncs[type](text, src, off + j * typeSizes[type], F->valueMask);
-				if (text.size() > maxLen)
+				if (F->dimX > 1 || F->dimY > 1)
+					text += '[';
+
+				for (int ve = 0; ve < F->dimY * F->dimX; ve++)
 				{
-					text.erase(text.begin() + 32, text.end());
-					text += "...";
-					return text;
+					if (ve > 0 && type != DT_CHAR)
+						text += ',';
+
+					any = true;
+					markerReadFuncs[type](text, src, off, F->valueMask);
+					if (text.size() > maxLen)
+					{
+						text.erase(text.begin() + 32, text.end());
+						text += "...";
+						return text;
+					}
+					off += typeSizes[type];
 				}
+
+				if (F->dimX > 1 || F->dimY > 1)
+					text += ']';
 			}
 		}
 		// no valid fields
@@ -334,7 +347,7 @@ std::string GetMarkerSingleLine(const Marker& marker, IDataSource* src, size_t w
 			continue;
 
 		uint64_t off = marker.at + which * marker.stride + F->fixedOffset.GetValue();
-		uint64_t count = F->fixedElemCount.GetValue();
+		uint64_t count = F->fixedElemCount.GetValue() * F->dimX * F->dimY;
 		for (uint64_t j = 0; j < count; j++)
 		{
 			if (first)
@@ -369,6 +382,29 @@ static Int64ReadFunc* int64ReadFuncs[] =
 	Int64ReadFuncImpl<uint64_t>,
 	Int64ReadFuncImpl<float>,
 	Int64ReadFuncImpl<double>,
+};
+
+typedef double Float64ReadFunc(IDataSource* ds, uint64_t off, const BDSSFastMask& mask);
+template <class T> double Float64ReadFuncImpl(IDataSource* ds, uint64_t off, const BDSSFastMask& mask)
+{
+	T v;
+	ds->Read(off, sizeof(v), &v);
+	ApplyMaskExtend(v, mask);
+	return double(v);
+}
+static Float64ReadFunc* float64ReadFuncs[] =
+{
+	Float64ReadFuncImpl<char>,
+	Float64ReadFuncImpl<int8_t>,
+	Float64ReadFuncImpl<uint8_t>,
+	Float64ReadFuncImpl<int16_t>,
+	Float64ReadFuncImpl<uint16_t>,
+	Float64ReadFuncImpl<int32_t>,
+	Float64ReadFuncImpl<uint32_t>,
+	Float64ReadFuncImpl<int64_t>,
+	Float64ReadFuncImpl<uint64_t>,
+	Float64ReadFuncImpl<float>,
+	Float64ReadFuncImpl<double>,
 };
 
 
@@ -413,7 +449,7 @@ unsigned Marker::ContainInfo(uint64_t pos, ui::Color4f* col) const
 
 		auto size = typeSizes[type];
 		uint64_t off = F->fixedOffset.GetValue();
-		uint64_t count = F->fixedElemCount.GetValue();
+		uint64_t count = F->fixedElemCount.GetValue() * F->dimX * F->dimY;
 		if (pos >= off && pos < off + size * count)
 		{
 			unsigned ret = 1;
@@ -479,9 +515,11 @@ void MarkerData::Load(const char* key, NamedTextSerializeReader& r)
 			unsigned bitend = r.ReadUInt("bitend", 64);
 			if (bitstart != 0 || bitend != 64)
 				M.def += ui::Format("!bitend(%u,%u) ", bitstart, bitend);
-			M.def += r.ReadString("type");
 			uint64_t count = r.ReadUInt64("count");
-			if (count != 1)
+			if (count > 1 && count <= 4)
+				M.def += ui::Format("!v%d ", int(count));
+			M.def += r.ReadString("type");
+			if (count > 4)
 				M.def += ui::Format("[%" PRIu64 "]", count);
 		}
 		M.compiled.Parse(M.def, true);
@@ -618,9 +656,11 @@ void MarkedItemEditor::Build()
 	ui::imm::PropEditInt("Offset", marker->at);
 	ui::imm::PropEditInt("Repeats", marker->repeats, { ui::AddLabelTooltip(">1 turns on analysis across repeats instead of packed array") });
 	ui::imm::PropEditInt("Stride", marker->stride, { ui::AddLabelTooltip("Distance in bytes between arrays of elements") });
-	ui::imm::PropEditString("Notes", marker->notes.c_str(), [this](const char* v) { marker->notes = v; });
+	ui::imm::PropEditStringMultiline("Notes", marker->notes.c_str(), [this](const char* v) { marker->notes = v; });
 	ui::Pop();
 	ui::Pop();
+
+	auto& fields = marker->compiled.structs[0]->fields;
 
 	ui::Push<ui::FrameElement>().SetDefaultFrameStyle(ui::DefaultFrameStyle::GroupBox);
 	ui::Push<ui::EdgeSliceLayoutElement>();
@@ -628,13 +668,13 @@ void MarkedItemEditor::Build()
 	{
 		analysisData.results.clear();
 		if (marker->repeats <= 1 &&
-			marker->compiled.structs[0]->fields.size() == 1 &&
-			marker->compiled.structs[0]->fields[0]->fixedElemCount.HasValue())
+			fields.size() == 1 &&
+			fields[0]->fixedElemCount.HasValue())
 		{
 			for (;;)
 			{
 				// analyze a single array
-				const auto& F = marker->compiled.structs[0]->fields[0];
+				const auto& F = fields[0];
 
 				int type = FindDataTypeByName(F->typeName);
 				if (type == -1 ||
@@ -642,8 +682,18 @@ void MarkedItemEditor::Build()
 					!F->fixedOffset.HasValue())
 					continue;
 
-				analysisData.results.push_back(analysisFuncs[type](dataSource, F->endianness, marker->at + F->fixedOffset.GetValue(),
-					typeSizes[type], F->fixedElemCount.GetValue(), F->valueMask, F->excludeZeroes));
+				for (int ve = 0; ve < F->dimX * F->dimY; ve++)
+				{
+					auto res = analysisFuncs[type](
+						dataSource,
+						F->endianness,
+						marker->at + F->fixedOffset.GetValue() + typeSizes[type] * ve,
+						typeSizes[type],
+						F->fixedElemCount.GetValue(),
+						F->valueMask,
+						F->excludeZeroes);
+					analysisData.results.push_back(std::move(res));
+				}
 
 				break;
 			}
@@ -651,7 +701,7 @@ void MarkedItemEditor::Build()
 		else
 		{
 			// analyze each array element separately
-			for (const auto& F : marker->compiled.structs[0]->fields)
+			for (const auto& F : fields)
 			{
 				int type = FindDataTypeByName(F->typeName);
 				if (type == -1 ||
@@ -659,7 +709,7 @@ void MarkedItemEditor::Build()
 					!F->fixedOffset.HasValue())
 					continue;
 
-				uint64_t count = F->fixedElemCount.GetValue();
+				uint64_t count = F->fixedElemCount.GetValue() * F->dimX * F->dimY;
 				for (uint64_t i = 0; i < count; i++)
 				{
 					uint64_t off = marker->at + F->fixedOffset.GetValue() + i * typeSizes[type];
@@ -669,45 +719,124 @@ void MarkedItemEditor::Build()
 			}
 		}
 	}
-#if 0 // TODO
-	if (marker->type == DT_F32 && marker->count == 3 && marker->repeats > 1 && ui::imm::Button("Export points to .obj"))
+
+	ui::LabeledProperty::Begin("\bExport:");
+
+	struct FieldOption
 	{
-		if (FILE* fp = fopen("positions.obj", "w"))
+		size_t id;
+		std::string name;
+	};
+	std::vector<FieldOption> vec2Fields;
+	std::vector<FieldOption> vec2or3Fields;
+	for (const auto& F : fields)
+	{
+		if (!(marker->repeats > 1 || F->fixedElemCount.GetValueOrDefault(0) > 1))
+			continue;
+		if (!((F->dimX == 2 || F->dimX == 3) && F->dimY == 1))
+			continue;
+		int type = FindDataTypeByName(F->typeName);
+		if (type == -1 ||
+			type < DT_I8 ||
+			type > DT_F64 ||
+			!F->fixedElemCount.HasValue() ||
+			!F->fixedOffset.HasValue())
+			continue;
+
+		size_t id = &F - &fields.back();
+		if (F->dimX == 2)
 		{
-			for (uint64_t i = 0; i < marker->repeats; i++)
+			std::string name = ui::Format("[%zu] %s", id, F->typeName.c_str());
+			if (!F->name.empty())
 			{
-				float vec[3];
-				dataSource->Read(marker->at + marker->stride * i, sizeof(vec), vec);
-				fprintf(fp, "v %g %g %g\n", vec[0], vec[1], vec[2]);
+				name += " - ";
+				name += F->name;
 			}
-			fclose(fp);
+			vec2Fields.push_back({ id, name });
+		}
+		std::string name = ui::Format("[%zu] %dD %s", id, int(F->dimX), F->typeName.c_str());
+		if (!F->name.empty())
+		{
+			name += " - ";
+			name += F->name;
+		}
+		vec2or3Fields.push_back({ id, name });
+	}
+	if (ui::imm::Button("positions (.obj)", { ui::Enable(!vec2or3Fields.empty()) }))
+	{
+		std::vector<ui::MenuItem> items;
+		for (auto& f : vec2or3Fields)
+			items.push_back(ui::MenuItem(f.name));
+		ui::Menu menu(items);
+		int which = menu.Show(ui::GetCurrentBuildable());
+		if (which >= 0)
+		{
+			auto& F = fields[vec2or3Fields[which].id];
+			int type = FindDataTypeByName(F->typeName);
+			size_t sz = typeSizes[type];
+			uint64_t count = F->fixedElemCount.GetValue();
+
+			if (FILE* fp = fopen("positions.obj", "w"))
+			{
+				for (uint64_t i = 0; i < marker->repeats; i++)
+				{
+					uint64_t off = marker->at + marker->stride * i + F->fixedOffset.GetValue();
+					for (uint64_t j = 0; j < count; j++)
+					{
+						double x = float64ReadFuncs[type](dataSource, off, F->valueMask);
+						off += sz;
+						double y = float64ReadFuncs[type](dataSource, off, F->valueMask);
+						off += sz;
+						double z = 0;
+						if (F->dimX == 3)
+						{
+							z = float64ReadFuncs[type](dataSource, off, F->valueMask);
+							off += sz;
+						}
+						fprintf(fp, "v %g %g %g\n", x, y, z);
+					}
+				}
+				fclose(fp);
+			}
 		}
 	}
-	if (marker->type >= DT_I8 && marker->type <= DT_U64 && marker->count == 2 && marker->repeats > 1 && ui::imm::Button("Export links to .dot"))
+
+	if (ui::imm::Button("links (.dot)", { ui::Enable(!vec2Fields.empty()) }))
 	{
-		if (FILE* fp = fopen("graph.dot", "w"))
+		std::vector<ui::MenuItem> items;
+		for (auto& f : vec2Fields)
+			items.push_back(ui::MenuItem(f.name));
+		ui::Menu menu(items);
+		int which = menu.Show(ui::GetCurrentBuildable());
+		if (which >= 0)
 		{
-			fprintf(fp, "graph exported {\n");
-			for (uint64_t i = 0; i < marker->repeats; i++)
+			auto& F = fields[vec2Fields[which].id];
+			int type = FindDataTypeByName(F->typeName);
+			size_t sz = typeSizes[type];
+			uint64_t count = F->fixedElemCount.GetValue();
+
+			if (FILE* fp = fopen("graph.dot", "w"))
 			{
-				int64_t A = int64ReadFuncs[marker->type](
-					dataSource,
-					marker->at + marker->stride * i,
-					marker->bitstart,
-					marker->bitend);
-				int64_t B = int64ReadFuncs[marker->type](
-					dataSource,
-					marker->at + marker->stride * i + typeSizes[marker->type],
-					marker->bitstart,
-					marker->bitend);
-				fprintf(fp, "\t%" PRId64 " -- %" PRId64 "\n", A, B);
+				fprintf(fp, "graph exported {\n");
+				for (uint64_t i = 0; i < marker->repeats; i++)
+				{
+					uint64_t off = marker->at + marker->stride * i + F->fixedOffset.GetValue();
+					for (uint64_t j = 0; j < count; j++)
+					{
+						int64_t A = int64ReadFuncs[type](dataSource, off, F->valueMask);
+						off += sz;
+						int64_t B = int64ReadFuncs[type](dataSource, off, F->valueMask);
+						off += sz;
+						fprintf(fp, "\t%" PRId64 " -- %" PRId64 "\n", A, B);
+					}
+				}
+				fprintf(fp, "}\n");
+				fclose(fp);
 			}
-			fprintf(fp, "}\n");
-			fclose(fp);
 		}
 	}
-#endif
-	if (ui::imm::Button("Export data to CSV"))
+
+	if (ui::imm::Button("CSV"))
 	{
 		if (FILE* fp = fopen("marker.csv", "w"))
 		{
@@ -720,6 +849,9 @@ void MarkedItemEditor::Build()
 			fclose(fp);
 		}
 	}
+
+	ui::LabeledProperty::End();
+
 	if (analysisData.results.size())
 	{
 		auto& tbl = ui::Make<ui::TableView>();

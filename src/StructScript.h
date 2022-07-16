@@ -29,6 +29,8 @@ struct BDSSField : ui::RefCountedST
 	ui::Optional<uint64_t> fixedOffset;
 	Endianness endianness = Endianness::Little;
 	BDSSFastMask valueMask = { ~0ULL, 0, 0 };
+	uint8_t dimX = 1;
+	uint8_t dimY = 1;
 	bool readUntil0 = false;
 	bool excludeZeroes = false;
 	bool countIsMaxSize = false;
