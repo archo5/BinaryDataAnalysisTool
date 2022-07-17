@@ -17,6 +17,7 @@ void TabImages::Build()
 		workspace->ddimgSrc.Edit();
 
 		auto& tv = ui::Make<ui::TableView>();
+		tv.enableRowHeader = false;
 		tv.SetDataSource(&workspace->ddimgSrc);
 		tv.SetSelectionStorage(&workspace->ddimgSrc);
 		tv.SetSelectionMode(ui::SelectionMode::Single);

@@ -38,7 +38,8 @@ void Workspace::Load(NamedTextSerializeReader& r)
 	{
 		std::string path = F->path;
 		// TODO workspace-relative paths?
-		F->dataSource = new FileDataSource(path.c_str());
+		F->origDataSource = GetFileDataSource(path.c_str());
+		F->dataSource = GetSlice(F->origDataSource, F->off, F->size);
 		F->mdSrc.dataSource = F->dataSource;
 	}
 

@@ -745,7 +745,6 @@ DDFile* DataDesc::CreateNewFile()
 	auto* F = new DDFile;
 	F->id = fileIDAlloc++;
 	F->mdSrc.data = &F->markerData;
-	F->mdSrc.dataSource = F->dataSource;
 	files.push_back(F);
 	return F;
 }
@@ -810,6 +809,8 @@ void DataDesc::Load(const char* key, NamedTextSerializeReader& r)
 		F->id = r.ReadUInt64("id");
 		F->name = r.ReadString("name");
 		F->path = r.ReadString("path");
+		F->off = r.ReadUInt64("off");
+		F->size = r.ReadUInt64("size", UINT64_MAX);
 		F->markerData.Load("markerData", r);
 
 		r.EndDict();
@@ -937,6 +938,10 @@ void DataDesc::Save(const char* key, NamedTextSerializeWriter& w)
 		w.WriteInt("id", F->id);
 		w.WriteString("name", F->name);
 		w.WriteString("path", F->path);
+		if (F->off != 0)
+			w.WriteInt("off", F->off);
+		if (F->size != UINT64_MAX)
+			w.WriteInt("size", F->size);
 		F->markerData.Save("markerData", w);
 
 		w.EndDict();
@@ -1098,7 +1103,7 @@ std::string DataDescInstanceSource::GetText(size_t row, size_t col)
 	case DDI_COL_ID: return std::to_string(_indices[row]);
 	case DDI_COL_IID: return std::to_string(dataDesc->instances[_indices[row]]->id);
 	case DDI_COL_CR: return CreationReasonToStringShort(dataDesc->instances[_indices[row]]->creationReason);
-	case DDI_COL_File: return dataDesc->instances[_indices[row]]->file->name;
+	case DDI_COL_File: return dataDesc->instances[_indices[row]]->file->GetFileInfo();
 	case DDI_COL_Offset: return std::to_string(dataDesc->instances[_indices[row]]->off);
 	case DDI_COL_Struct: return dataDesc->instances[_indices[row]]->def->name;
 	case DDI_COL_Bytes: {
@@ -1173,7 +1178,7 @@ struct FileOptions : ui::OptionList
 	void IterateElements(size_t from, size_t count, std::function<ElementFunc>&& fn) override
 	{
 		std::vector<DDFile*> files = desc->files;
-		std::sort(files.begin(), files.end(), [](const DDFile* a, const DDFile* b) { return a->name < b->name; });
+		std::sort(files.begin(), files.end(), [](const DDFile* a, const DDFile* b) { return a->GetFileInfo() < b->GetFileInfo(); });
 		files.insert(files.begin(), nullptr);
 
 		for (size_t i = from; i < from + count && i < files.size(); i++)
@@ -1182,7 +1187,7 @@ struct FileOptions : ui::OptionList
 	void BuildElement(const void* ptr, uintptr_t id, bool list) override
 	{
 		auto* s = static_cast<const DDFile*>(ptr);
-		ui::Text(s ? s->name : "<none>");
+		ui::Text(s ? s->GetFileInfo() : "<none>");
 	}
 };
 
@@ -1348,7 +1353,7 @@ std::string DataDescImageSource::GetText(size_t row, size_t col)
 	{
 	case DDIMG_COL_ID: return std::to_string(_indices[row]);
 	case DDIMG_COL_User: return dataDesc->images[_indices[row]].userCreated ? "+" : "";
-	case DDIMG_COL_File: return dataDesc->images[_indices[row]].file->name;
+	case DDIMG_COL_File: return dataDesc->images[_indices[row]].file->GetFileInfo();
 	case DDIMG_COL_ImgOff: return std::to_string(dataDesc->images[_indices[row]].info.offImg);
 	case DDIMG_COL_PalOff: return std::to_string(dataDesc->images[_indices[row]].info.offPal);
 	case DDIMG_COL_Format: return dataDesc->images[_indices[row]].format;

@@ -32,6 +32,7 @@ void TabStructures::Build()
 
 		auto& tv = ui::Make<ui::TableView>();
 		curTable = &tv;
+		tv.enableRowHeader = false;
 		tv.SetDataSource(&workspace->ddiSrc);
 		tv.SetSelectionStorage(&workspace->ddiSrc);
 		tv.SetSelectionMode(ui::SelectionMode::Single);

@@ -18,6 +18,7 @@ struct FileView : ui::Buildable
 	DDStruct* CreateStructFromMarkers(int64_t pos);
 	void CreateImage(int64_t pos, ui::StringView fmt);
 	void GoToOffset(int64_t pos, Endianness endianness);
+	void CreateSubviewAt(uint64_t pos);
 
 	Workspace* workspace = nullptr;
 	OpenedFile* of = nullptr;

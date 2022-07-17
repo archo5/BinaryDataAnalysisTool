@@ -141,7 +141,10 @@ struct MainWindow : ui::NativeMainWindow
 			int nf = 0;
 			for (auto* f : workspace.openedFiles)
 			{
-				tpFiles.AddTextTab(f->ddFile->name, uintptr_t(nf++));
+				std::string text = f->ddFile->name;
+				if (f->ddFile->off > 0 || f->ddFile->size < f->ddFile->origDataSource->GetSize())
+					text += ui::Format("[%" PRIu64 "-%" PRIu64 "]", f->ddFile->off, f->ddFile->off + f->ddFile->size);
+				tpFiles.AddTextTab(text, uintptr_t(nf++));
 			}
 			tpFiles.SetActiveTabByUID(workspace.curOpenedFile);
 			tpFiles.HandleEvent(&tpFiles, ui::EventType::SelectionChange) = [this, &tpFiles](ui::Event&)
@@ -296,7 +299,8 @@ struct MainWindow : ui::NativeMainWindow
 			auto* F = workspace.desc.CreateNewFile();
 			F->name = ui::to_string(ui::StringView(path).after_last("/"));
 			F->path = path;
-			F->dataSource = new FileDataSource(path.c_str());
+			F->origDataSource = GetFileDataSource(path.c_str());
+			F->dataSource = GetSlice(F->origDataSource, F->off, F->size);
 			F->mdSrc.dataSource = F->dataSource;
 
 			auto* of = new OpenedFile;

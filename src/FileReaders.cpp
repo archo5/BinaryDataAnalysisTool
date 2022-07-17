@@ -153,6 +153,11 @@ uint64_t FileDataSource::GetSize()
 	return _size;
 }
 
+FileDataSource* GetFileDataSource(const char* path)
+{
+	return new FileDataSource(path);
+}
+
 
 SliceDataSource::SliceDataSource(IDataSource* src, uint64_t off, uint64_t size) : _src(src), _off(off), _size(size)
 {
@@ -177,3 +182,10 @@ uint64_t SliceDataSource::GetSize()
 	return _size;
 }
 
+
+IDataSource* GetSlice(IDataSource* src, uint64_t off, uint64_t size)
+{
+	if (off == 0 && size >= src->GetSize())
+		return src;
+	return new SliceDataSource(src, off, size);
+}

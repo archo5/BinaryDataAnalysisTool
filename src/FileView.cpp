@@ -69,7 +69,7 @@ void FileView::Build()
 
 void FileView::HexViewer_OnRightClick()
 {
-	auto* ds = of->ddFile->dataSource;
+	auto* ds = of->ddFile->dataSource.get_ptr();
 	int64_t pos = of->hexViewerState.hoverByte;
 	auto endianness = of->hexViewerState.endianness;
 	auto selMin = ui::min(of->hexViewerState.selectionStart, of->hexViewerState.selectionEnd);
@@ -162,6 +162,9 @@ void FileView::HexViewer_OnRightClick()
 		ui::MenuItem("Mark float64", txt_float64).Func([&md, pos, endianness]() { md.AddMarker(DT_F64, endianness, pos, pos + 8); }),
 		ui::MenuItem::Separator(),
 		ui::MenuItem("Highlight all int32", txt_int32).Func([this, val_int32]() { of->highlightSettings.AddCustomInt32(val_int32); }),
+		ui::MenuItem("Highlight offset as int32", txt_pos + 2).Func([this, pos]() { of->highlightSettings.AddCustomInt32(pos); }),
+		ui::MenuItem::Separator(),
+		ui::MenuItem("Create a subview", txt_pos).Func([this, pos]() { CreateSubviewAt(pos); }),
 	};
 	ui::Menu menu(items);
 	menu.Show(this);
@@ -217,6 +220,7 @@ void FileView::CreateImage(int64_t pos, ui::StringView fmt)
 	img.info.width = 4;
 	img.info.height = 4;
 	img.info.offImg = pos;
+	img.info.offPal = 0;
 	img.format.assign(fmt.data(), fmt.size());
 	img.info.opaque = true;
 	img.file = of->ddFile;
@@ -231,4 +235,52 @@ void FileView::GoToOffset(int64_t pos, Endianness endianness)
 	EndiannessAdjust(off, endianness);
 
 	of->hexViewerState.GoToPos(off);
+}
+
+void FileView::CreateSubviewAt(uint64_t pos)
+{
+	auto* srcf = of->ddFile;
+	auto* F = workspace->desc.CreateNewFile();
+	uint64_t end = srcf->dataSource->GetSize();
+	F->name = srcf->name;
+	F->path = srcf->path;
+	F->off = srcf->off + pos;
+	F->size = end - pos;
+	F->origDataSource = srcf->origDataSource;
+	F->dataSource = GetSlice(srcf->origDataSource, F->off, F->size);
+	F->mdSrc.dataSource = F->dataSource;
+	for (auto& m : srcf->markerData.markers)
+	{
+		if (m.at < pos)
+			continue;
+		auto mcopy = m;
+		mcopy.at -= pos;
+		mcopy.compiled.structs.clear();
+		mcopy.compiled.Parse(mcopy.def, true);
+		F->markerData.markers.push_back(std::move(mcopy));
+	}
+	for (size_t i = 0, count = workspace->desc.images.size(); i < count; i++)
+	{
+		auto& I = workspace->desc.images[i];
+		if (I.file != srcf || I.info.offImg < pos || (I.info.offPal != 0 && I.info.offPal < pos))
+			continue;
+		size_t di = workspace->desc.DuplicateImage(i);
+		auto& DI = workspace->desc.images[di];
+		DI.file = F;
+		DI.info.offImg -= pos;
+		if (DI.info.offPal)
+			DI.info.offPal -= pos;
+	}
+
+	auto* nof = new OpenedFile;
+	nof->ddFile = F;
+	nof->fileID = F->id;
+	nof->hexViewerState = of->hexViewerState;
+	nof->highlightSettings = of->highlightSettings;
+	nof->hexViewerState.basePos = ui::max(int64_t(nof->hexViewerState.basePos - pos), 0LL);
+	nof->hexViewerState.selectionStart = ui::max(int64_t(nof->hexViewerState.selectionStart - pos), 0LL);
+	nof->hexViewerState.selectionEnd = ui::max(int64_t(nof->hexViewerState.selectionEnd - pos), 0LL);
+	workspace->openedFiles.push_back(nof);
+	workspace->curOpenedFile = workspace->openedFiles.size() - 1;
+	OnCurrentFileChanged.Call(nof);
 }

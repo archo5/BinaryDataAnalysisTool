@@ -25,7 +25,7 @@ void TabInspect::Build()
 		if (of->hexViewerState.selectionStart != UINT64_MAX)
 			pos = std::min(of->hexViewerState.selectionStart, of->hexViewerState.selectionEnd);
 
-		auto* ds = of->ddFile->dataSource;
+		auto* ds = of->ddFile->dataSource.get_ptr();
 
 		char txt_ascii[32];
 		ds->GetASCIIText(txt_ascii, 32, pos);

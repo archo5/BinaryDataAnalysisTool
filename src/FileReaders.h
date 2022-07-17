@@ -4,7 +4,7 @@
 #include "Common.h"
 
 
-struct IDataSource
+struct IDataSource : ui::RefCountedST
 {
 	virtual ~IDataSource() {}
 	virtual size_t Read(uint64_t at, size_t size, void* out) = 0;
@@ -45,6 +45,8 @@ struct FileDataSource : IDataSource
 	uint64_t _size = 0;
 };
 
+FileDataSource* GetFileDataSource(const char* path);
+
 struct SliceDataSource : IDataSource
 {
 	SliceDataSource(IDataSource* src, uint64_t off, uint64_t size);
@@ -57,4 +59,6 @@ struct SliceDataSource : IDataSource
 	uint64_t _off;
 	uint64_t _size;
 };
+
+IDataSource* GetSlice(IDataSource* src, uint64_t off, uint64_t size);
 

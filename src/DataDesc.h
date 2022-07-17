@@ -23,9 +23,19 @@ struct DDFile
 	uint64_t id = UINT64_MAX;
 	std::string name;
 	std::string path;
-	struct IDataSource* dataSource = nullptr;
+	uint64_t off = 0;
+	uint64_t size = UINT64_MAX;
+	ui::RCHandle<struct IDataSource> dataSource;
+	ui::RCHandle<struct IDataSource> origDataSource;
 	MarkerData markerData;
 	MarkerDataSource mdSrc;
+
+	std::string GetFileInfo() const
+	{
+		if (off == 0 && size == UINT64_MAX)
+			return name;
+		return ui::Format("%s[%" PRIu64 "-%" PRIu64 "]", name.c_str(), off, off + size);
+	}
 };
 
 

@@ -95,7 +95,7 @@ struct MarkerDataSource : ui::TableDataSource, ui::ISelectionStorage
 	bool GetSelectionState(uintptr_t item) override;
 	void SetSelectionState(uintptr_t item, bool sel) override;
 
-	IDataSource* dataSource;
+	ui::RCHandle<IDataSource> dataSource;
 	MarkerData* data;
 	size_t selected = SIZE_MAX;
 };
