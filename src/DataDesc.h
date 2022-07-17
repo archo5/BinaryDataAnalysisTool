@@ -18,6 +18,32 @@ extern ui::Color4f colorInst;
 extern ui::Color4f colorCurInst;
 
 
+struct OffModRange
+{
+	uint64_t off = 0;
+	uint64_t size = 0;
+	uint64_t base = 0;
+	uint64_t mul = 1;
+};
+
+struct OffModResult
+{
+	uint64_t newOffset;
+	bool wasModified;
+	bool valid;
+};
+
+struct OffModRanges
+{
+	std::vector<OffModRange> ranges;
+
+	OffModResult TransformOffset(uint64_t pos, uint64_t val, uint64_t validLimit = UINT64_MAX);
+	void Load(const char* key, NamedTextSerializeReader& r);
+	void Save(const char* key, NamedTextSerializeWriter& w);
+	void Edit();
+};
+
+
 struct DDFile
 {
 	uint64_t id = UINT64_MAX;
@@ -29,6 +55,7 @@ struct DDFile
 	ui::RCHandle<struct IDataSource> origDataSource;
 	MarkerData markerData;
 	MarkerDataSource mdSrc;
+	OffModRanges offModRanges;
 
 	std::string GetFileInfo() const
 	{

@@ -66,7 +66,10 @@ void TabInspect::Build()
 		ui::Pop();
 
 		ui::Push<ui::StackTopDownLayoutElement>();
-		ui::MakeWithText<ui::LabelFrame>("Settings");
+		ui::MakeWithText<ui::Header>("Settings");
+
+		of->ddFile->offModRanges.Edit();
+
 		ui::Pop();
 	}
 	ui::Pop();

@@ -9,6 +9,109 @@ ui::MulticastDelegate<DataDesc*, DDStruct*> OnCurStructChanged;
 ui::MulticastDelegate<DataDesc*, DDStructInst*> OnCurStructInstChanged;
 
 
+OffModResult OffModRanges::TransformOffset(uint64_t pos, uint64_t val, uint64_t validLimit)
+{
+	for (const auto& omr : ranges)
+	{
+		if (pos >= omr.off && pos < omr.off + omr.size)
+		{
+			OffModResult res = { 0, true, true };
+			uint64_t postmul = val * omr.mul;
+			if (omr.mul == 0 || postmul / omr.mul != val)
+				res.valid = false;
+			uint64_t postadd = postmul + omr.base;
+			if (postadd < postmul)
+				res.valid = false;
+			if (postadd > validLimit)
+				res.valid = false;
+			res.newOffset = postadd;
+			return res;
+		}
+	}
+	return { val, false, true };
+}
+
+void OffModRanges::Load(const char* key, NamedTextSerializeReader& r)
+{
+	r.BeginDict(key);
+
+	r.BeginArray("ranges");
+	for (auto E : r.GetCurrentRange())
+	{
+		r.BeginEntry(E);
+		r.BeginDict("");
+
+		OffModRange omr;
+		omr.off = r.ReadUInt64("off");
+		omr.size = r.ReadUInt64("size");
+		omr.base = r.ReadUInt64("base");
+		omr.mul = r.ReadUInt64("mul");
+		ranges.push_back(omr);
+
+		r.EndDict();
+		r.EndEntry();
+	}
+	r.EndArray();
+
+	r.EndDict();
+}
+
+void OffModRanges::Save(const char* key, NamedTextSerializeWriter& w)
+{
+	w.BeginDict(key);
+
+	w.BeginArray("ranges");
+	for (const auto& omr : ranges)
+	{
+		w.BeginDict("");
+
+		w.WriteInt("off", omr.off);
+		w.WriteInt("size", omr.size);
+		w.WriteInt("base", omr.base);
+		w.WriteInt("mul", omr.mul);
+
+		w.EndDict();
+	}
+	w.EndArray();
+
+	w.EndDict();
+}
+
+void OffModRanges::Edit()
+{
+	ui::MakeWithText<ui::LabelFrame>("Offset modifier ranges");
+	ui::Push<ui::FrameElement>().SetDefaultFrameStyle(ui::DefaultFrameStyle::GroupBox);
+	ui::Push<ui::StackTopDownLayoutElement>();
+
+	auto* omrSeq = ui::BuildAlloc<ui::StdSequence<decltype(ranges)>>(ranges);
+	auto& omrEditor = ui::Make<ui::SequenceEditor>();
+	omrEditor.SetSequence(omrSeq);
+	omrEditor.itemUICallback = [this](ui::SequenceEditor* ed, size_t idx, void* ptr)
+	{
+		auto& R = *static_cast<OffModRange*>(ptr);
+
+		ui::Push<ui::StackTopDownLayoutElement>();
+		ui::Push<ui::StackExpandLTRLayoutElement>();
+		ui::imm::PropEditInt("\bOffset", R.off);
+		ui::imm::PropEditInt("\bSize", R.size);
+		ui::Pop();
+		ui::Push<ui::StackExpandLTRLayoutElement>();
+		ui::imm::PropEditInt("\bBase", R.base);
+		ui::imm::PropEditInt("\bMultiplier", R.mul, {}, {}, ui::Range<uint64_t>::AtLeast(1));
+		ui::Pop();
+		ui::Pop();
+	};
+
+	if (ui::imm::Button("Add"))
+	{
+		ranges.push_back({});
+		ui::RebuildCurrent();
+	}
+	ui::Pop();
+	ui::Pop();
+}
+
+
 bool EditImageFormat(const char* label, std::string& format)
 {
 	if (ui::imm::PropButton(label, format.c_str()))
@@ -812,6 +915,7 @@ void DataDesc::Load(const char* key, NamedTextSerializeReader& r)
 		F->off = r.ReadUInt64("off");
 		F->size = r.ReadUInt64("size", UINT64_MAX);
 		F->markerData.Load("markerData", r);
+		F->offModRanges.Load("offMod", r);
 
 		r.EndDict();
 		r.EndEntry();
@@ -943,6 +1047,7 @@ void DataDesc::Save(const char* key, NamedTextSerializeWriter& w)
 		if (F->size != UINT64_MAX)
 			w.WriteInt("size", F->size);
 		F->markerData.Save("markerData", w);
+		F->offModRanges.Save("offMod", w);
 
 		w.EndDict();
 	}

@@ -74,11 +74,21 @@ void FileView::HexViewer_OnRightClick()
 	auto endianness = of->hexViewerState.endianness;
 	auto selMin = ui::min(of->hexViewerState.selectionStart, of->hexViewerState.selectionEnd);
 	auto selMax = ui::max(of->hexViewerState.selectionStart, of->hexViewerState.selectionEnd);
+	int64_t size = 0;
 	if (selMin != UINT64_MAX && selMax != UINT64_MAX && selMin <= pos && pos <= selMax)
+	{
 		pos = selMin;
+		size = selMax - selMin;
+	}
 
 	char txt_pos[64];
 	snprintf(txt_pos, 64, "@ %" PRIu64 " (0x%" PRIX64 ")", pos, pos);
+
+	char txt_sel[64];
+	if (size == 0)
+		strcpy(txt_sel, txt_pos);
+	else
+		snprintf(txt_sel, 64, "%" PRIu64 " - %" PRIu64, pos, pos + size);
 
 	char txt_ascii[32];
 	ds->GetASCIIText(txt_ascii, 32, pos);
@@ -107,6 +117,7 @@ void FileView::HexViewer_OnRightClick()
 	int32_t val_int32;
 	ds->Read(pos, sizeof(val_int32), &val_int32);
 	EndiannessAdjust(val_int32, endianness);
+	uint32_t val_uint32 = val_int32;
 
 	std::vector<ui::MenuItem> structs;
 	{
@@ -140,6 +151,10 @@ void FileView::HexViewer_OnRightClick()
 		images.push_back(ui::MenuItem(name).Func([this, pos, name]() { CreateImage(pos, name); }));
 	}
 
+	auto omr = of->ddFile->offModRanges.TransformOffset(pos, val_uint32, ds->GetSize());
+	char txt_adjuint32[64];
+	snprintf(txt_adjuint32, sizeof(txt_adjuint32), "%" PRIu64, omr.newOffset);
+
 	auto& md = of->ddFile->markerData;
 	ui::MenuItem items[] =
 	{
@@ -147,6 +162,7 @@ void FileView::HexViewer_OnRightClick()
 		ui::MenuItem::Submenu("Place struct", structs),
 		ui::MenuItem::Submenu("Place image", images),
 		ui::MenuItem::Separator(),
+		ui::MenuItem("Go to adjusted offset (u32)", txt_adjuint32, !omr.valid).Func([this, &omr] { of->hexViewerState.GoToPos(omr.newOffset); }),
 		ui::MenuItem("Go to offset (u32)", txt_uint32).Func([this, pos, endianness]() { GoToOffset(pos, endianness); }),
 		ui::MenuItem::Separator(),
 		ui::MenuItem("Mark ASCII", txt_ascii).Func([&md, pos, endianness]() { md.AddMarker(DT_CHAR, endianness, pos, pos + 1); }),
@@ -165,6 +181,7 @@ void FileView::HexViewer_OnRightClick()
 		ui::MenuItem("Highlight offset as int32", txt_pos + 2).Func([this, pos]() { of->highlightSettings.AddCustomInt32(pos); }),
 		ui::MenuItem::Separator(),
 		ui::MenuItem("Create a subview", txt_pos).Func([this, pos]() { CreateSubviewAt(pos); }),
+		ui::MenuItem("Create off.mod.range", txt_sel).Func([this, pos, size]() { of->ddFile->offModRanges.ranges.push_back({ uint64_t(pos), uint64_t(size) }); }),
 	};
 	ui::Menu menu(items);
 	menu.Show(this);

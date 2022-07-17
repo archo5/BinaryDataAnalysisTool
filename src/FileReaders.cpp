@@ -170,8 +170,8 @@ SliceDataSource::~SliceDataSource()
 size_t SliceDataSource::Read(uint64_t at, size_t size, void* out)
 {
 	auto from = std::min(at, _size);
-	auto end = std::min(at + size, _size);
-	size_t nw = _src->Read(at + _off, end - from, out);
+	auto end = std::min(from + size, _size);
+	size_t nw = _src->Read(from + _off, end - from, out);
 	if (nw < size)
 		memset((char*)out + nw, 0, size - nw);
 	return nw;
