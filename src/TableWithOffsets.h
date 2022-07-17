@@ -33,11 +33,14 @@ struct TableWithOffsets
 		auto hoverRow = curTable->GetHoverRow();
 		TryAddRow(hoverRow, col, ret, max, buf);
 
-		auto range = curTable->GetVisibleRange();
-		for (auto row = range.min; row < range.max; row++)
+		if (curTable->GetSelectionStorage())
 		{
-			if (curTable->GetSelectionStorage()->GetSelectionState(row))
-				TryAddRow(row, col, ret, max, buf);
+			auto range = curTable->GetVisibleRange();
+			for (auto row = range.min; row < range.max; row++)
+			{
+				if (curTable->GetSelectionStorage()->GetSelectionState(row))
+					TryAddRow(row, col, ret, max, buf);
+			}
 		}
 
 		return ret;
@@ -49,6 +52,7 @@ struct TableWithOffsets
 			return;
 
 		auto* ds = curTable->GetDataSource();
+		auto* ss = curTable->GetSelectionStorage();
 		auto tcr = curTable->GetContentRect();
 
 		auto offtext = ds->GetText(row, col);
@@ -56,7 +60,7 @@ struct TableWithOffsets
 		auto cr = curTable->GetCellRect(SIZE_MAX, row);
 		float y = (cr.y0 + cr.y1) * 0.5f;
 		if (tcr.Contains(cr.x0, y))
-			buf[ret++] = { off, { cr.x0, y }, curTable->GetSelectionStorage()->GetSelectionState(row) };
+			buf[ret++] = { off, { cr.x0, y }, ss ? ss->GetSelectionState(row) : false };
 	}
 
 	ui::TableView* curTable = nullptr;

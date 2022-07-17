@@ -10,7 +10,7 @@ static float hsplitInspectTab1[1] = { 0.5f };
 
 void TabInspect::Build()
 {
-	ui::BuildMulticastDelegateAdd(OnHexViewerStateChanged, [this](const HexViewerState* s)
+	ui::BuildMulticastDelegateAdd(OnHexViewerInspectTargetChanged, [this](const HexViewerState* s)
 	{
 		if (s == &of->hexViewerState)
 			Rebuild();
@@ -20,10 +20,8 @@ void TabInspect::Build()
 	{
 		ui::Push<ui::StackTopDownLayoutElement>();
 
-		auto pos = of->hexViewerState.hoverByte;
+		auto pos = of->hexViewerState.GetInspectPos();
 		auto endianness = of->hexViewerState.endianness;
-		if (of->hexViewerState.selectionStart != UINT64_MAX)
-			pos = std::min(of->hexViewerState.selectionStart, of->hexViewerState.selectionEnd);
 
 		auto* ds = of->ddFile->dataSource.get_ptr();
 

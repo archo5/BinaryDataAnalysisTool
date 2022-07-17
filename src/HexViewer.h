@@ -51,6 +51,41 @@ struct ByteColors
 	ui::Color4f rightBracketColor = { 0, 0 };
 };
 
+enum class HighlightType : uint8_t
+{
+	ValueInRange,
+	NearFileSize,
+	CustomHighlight,
+};
+
+struct FoundHighlightList : ui::TableDataSource
+{
+	struct Item
+	{
+		uint64_t pos;
+		DataType dataType;
+		HighlightType hlType;
+		union
+		{
+			int64_t ival;
+			uint64_t uval;
+			double dval;
+		};
+	};
+
+	std::vector<Item> items;
+
+	void SortByOffset();
+
+	// TableDataSource (GenericGridDataSource)
+	size_t GetNumCols() override;
+	std::string GetColName(size_t col) override;
+	std::string GetText(uintptr_t id, size_t col) override;
+	// TableDataSource
+	size_t GetNumRows() override;
+	std::string GetRowName(size_t row) override;
+};
+
 struct HexViewerState
 {
 	uint64_t basePos = 0;
@@ -65,9 +100,13 @@ struct HexViewerState
 	uint64_t selectionEnd = UINT64_MAX;
 	bool mouseDown = false;
 
+	FoundHighlightList highlightList;
+
+	uint64_t GetInspectPos();
 	void GoToPos(int64_t pos);
 };
 extern ui::MulticastDelegate<const HexViewerState*> OnHexViewerStateChanged;
+extern ui::MulticastDelegate<const HexViewerState*> OnHexViewerInspectTargetChanged;
 
 struct HexViewer : ui::FillerElement
 {

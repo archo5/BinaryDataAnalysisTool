@@ -200,7 +200,9 @@ struct MainWindow : ui::NativeMainWindow
 
 								if (workspace.curSubtab == SubtabType::Highlights)
 								{
-									ui::Make<TabHighlights>().of = of;
+									auto& th = ui::Make<TabHighlights>();
+									th.of = of;
+									curTable = &th;
 								}
 
 								if (workspace.curSubtab == SubtabType::Markers)

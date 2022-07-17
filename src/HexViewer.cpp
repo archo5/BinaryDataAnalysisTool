@@ -3,6 +3,13 @@
 #include "HexViewer.h"
 
 
+uint64_t HexViewerState::GetInspectPos()
+{
+	if (selectionStart != UINT64_MAX)
+		return ui::min(selectionStart, selectionEnd);
+	return hoverByte;
+}
+
 void HexViewerState::GoToPos(int64_t pos)
 {
 	basePos = std::max(0LL, pos - byteWidth);
@@ -12,6 +19,7 @@ void HexViewerState::GoToPos(int64_t pos)
 }
 
 ui::MulticastDelegate<const HexViewerState*> OnHexViewerStateChanged;
+ui::MulticastDelegate<const HexViewerState*> OnHexViewerInspectTargetChanged;
 
 
 void HighlightSettings::AddCustomInt32(int32_t v)
@@ -167,13 +175,93 @@ void HighlightSettings::EditUI()
 }
 
 
+void FoundHighlightList::SortByOffset()
+{
+	std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) { return a.pos < b.pos; });
+}
+
+enum FHL_Cols
+{
+	FHL_COL_Pos,
+	FHL_COL_HLType,
+	FHL_COL_DataType,
+	FHL_COL_Value,
+
+	FHL_COL__COUNT,
+};
+
+size_t FoundHighlightList::GetNumCols()
+{
+	return FHL_COL__COUNT;
+}
+
+std::string FoundHighlightList::GetColName(size_t col)
+{
+	switch (col)
+	{
+	case FHL_COL_Pos: return "Offset";
+	case FHL_COL_HLType: return "Highlight type";
+	case FHL_COL_DataType: return "Data type";
+	case FHL_COL_Value: return "Value";
+	default: return "???";
+	}
+}
+
+std::string FoundHighlightList::GetText(uintptr_t id, size_t col)
+{
+	switch (col)
+	{
+	case FHL_COL_Pos: return std::to_string(items[id].pos);
+	case FHL_COL_HLType:
+		switch (items[id].hlType)
+		{
+		case HighlightType::ValueInRange: return "Value in range";
+		case HighlightType::NearFileSize: return "Near file size";
+		case HighlightType::CustomHighlight: return "Custom highlight";
+		default: return "???";
+		}
+	case FHL_COL_DataType: return GetDataTypeName(items[id].dataType);
+	case FHL_COL_Value:
+	{
+		switch (items[id].dataType)
+		{
+		case DT_I8:
+		case DT_I16:
+		case DT_I32:
+		case DT_I64: return std::to_string(items[id].ival);
+		case DT_U8:
+		case DT_U16:
+		case DT_U32:
+		case DT_U64: return std::to_string(uint64_t(items[id].uval));
+		case DT_F32:
+		case DT_F64: return std::to_string(reinterpret_cast<double&>(items[id].dval));
+		default: return "???";
+		}
+	}
+	default: return "???";
+	}
+}
+
+size_t FoundHighlightList::GetNumRows()
+{
+	return items.size();
+}
+
+std::string FoundHighlightList::GetRowName(size_t row)
+{
+	return std::to_string(row + 1);
+}
+
+
 static bool IsASCII(uint8_t v)
 {
 	return v >= 0x20 && v < 0x7f;
 }
 
-static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint64_t basePos, Endianness endianness, ByteColors* outColors, uint8_t* bytes, size_t numBytes)
+static void Highlight(HighlightSettings* hs, HexViewerState* hvs, DataDesc* desc, DDFile* file, uint64_t basePos, Endianness endianness, ByteColors* outColors, uint8_t* bytes, size_t numBytes)
 {
+	hvs->highlightList.items.clear();
+
 	for (auto& M : file->markerData.markers)
 	{
 		uint64_t start = M.at;
@@ -246,6 +334,10 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 				{
 					for (int j = 0; j < 8; j++)
 						outColors[i + j].hexColor.BlendOver(colorNearFileSize32);
+
+					FoundHighlightList::Item item = { basePos + i, DT_U64, HighlightType::NearFileSize };
+					item.uval = v;
+					hvs->highlightList.items.push_back(item);
 				}
 			}
 		}
@@ -276,6 +368,10 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 				{
 					for (int j = 0; j < 4; j++)
 						outColors[i + j].hexColor.BlendOver(h.color);
+
+					FoundHighlightList::Item item = { basePos + i, DT_I32, HighlightType::CustomHighlight };
+					item.ival = i32v;
+					hvs->highlightList.items.push_back(item);
 					break;
 				}
 			}
@@ -307,6 +403,10 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 				{
 					for (int j = 0; j < 4; j++)
 						outColors[i + j].hexColor.BlendOver(colorFloat32);
+
+					FoundHighlightList::Item item = { basePos + i, DT_F32, HighlightType::ValueInRange };
+					item.dval = v;
+					hvs->highlightList.items.push_back(item);
 				}
 			}
 
@@ -320,6 +420,10 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 				{
 					for (int j = 0; j < 4; j++)
 						outColors[i + j].hexColor.BlendOver(colorNearFileSize32);
+
+					FoundHighlightList::Item item = { basePos + i, DT_U32, HighlightType::NearFileSize };
+					item.uval = v;
+					hvs->highlightList.items.push_back(item);
 				}
 			}
 
@@ -329,6 +433,10 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 				{
 					for (int j = 0; j < 4; j++)
 						outColors[i + j].hexColor.BlendOver(colorInt32);
+
+					FoundHighlightList::Item item = { basePos + i, DT_I32, HighlightType::ValueInRange };
+					item.ival = i32v;
+					hvs->highlightList.items.push_back(item);
 				}
 			}
 		}
@@ -351,6 +459,10 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 			{
 				outColors[i].hexColor.BlendOver(colorInt32);
 				outColors[i + 1].hexColor.BlendOver(colorInt32);
+
+				FoundHighlightList::Item item = { basePos + i, DT_I16, HighlightType::ValueInRange };
+				item.ival = v;
+				hvs->highlightList.items.push_back(item);
 			}
 		}
 	}
@@ -377,6 +489,8 @@ static void Highlight(HighlightSettings* hs, DataDesc* desc, DDFile* file, uint6
 				outColors[j].asciiColor.BlendOver(colorASCII);
 		}
 	}
+
+	hvs->highlightList.SortByOffset();
 }
 
 
@@ -400,6 +514,7 @@ static void MoveSelection(HexViewer* hv, ui::Event& e, int64_t pos)
 		hv->state->basePos = ui::max((pos / w - ph) * w, 0LL);
 
 	OnHexViewerStateChanged.Call(hv->state);
+	OnHexViewerInspectTargetChanged.Call(hv->state);
 }
 
 void HexViewer::OnEvent(ui::Event& e)
@@ -413,6 +528,7 @@ void HexViewer::OnEvent(ui::Event& e)
 			state->mouseDown = true;
 			state->selectionStart = state->selectionEnd = state->hoverByte;
 			OnHexViewerStateChanged.Call(state);
+			OnHexViewerInspectTargetChanged.Call(state);
 		}
 	}
 	else if (e.type == ui::EventType::ButtonUp)
@@ -420,7 +536,8 @@ void HexViewer::OnEvent(ui::Event& e)
 		if (e.GetButton() == ui::MouseButton::Left)
 		{
 			state->mouseDown = false;
-			OnHexViewerStateChanged.Call(state);
+			//OnHexViewerStateChanged.Call(state);
+			//OnHexViewerInspectTargetChanged.Call(state);
 		}
 	}
 	else if (e.type == ui::EventType::MouseMove)
@@ -431,6 +548,9 @@ void HexViewer::OnEvent(ui::Event& e)
 		float x = GetFinalRect().x0 + 2 + ui::GetTextWidth(font, contentFont.size, "0") * 8;
 		float y = GetFinalRect().y0 + fh;
 		float x2 = x + 20 * W + 10;
+
+		uint64_t initialInspectPos = state->GetInspectPos();
+		uint64_t initialSelEnd = state->selectionEnd;
 
 		state->hoverSection = -1;
 		state->hoverByte = UINT64_MAX;
@@ -451,14 +571,22 @@ void HexViewer::OnEvent(ui::Event& e)
 		if (state->mouseDown)
 		{
 			state->selectionEnd = state->hoverByte;
-			OnHexViewerStateChanged.Call(state);
 		}
+
+		if (initialSelEnd != state->selectionEnd)
+			OnHexViewerStateChanged.Call(state);
+
+		auto finalInspectPos = state->GetInspectPos();
+		if (initialInspectPos != state->GetInspectPos())
+			OnHexViewerInspectTargetChanged.Call(state);
 	}
 	else if (e.type == ui::EventType::MouseLeave)
 	{
 		state->hoverSection = -1;
 		state->hoverByte = UINT64_MAX;
 		//OnHexViewerStateChanged.Call(state);
+		if (state->selectionEnd == UINT64_MAX)
+			OnHexViewerInspectTargetChanged.Call(state);
 	}
 	else if (e.type == ui::EventType::MouseScroll)
 	{
@@ -516,7 +644,7 @@ void HexViewer::OnPaint(const ui::UIPaintContext& ctx)
 	float y = GetFinalRect().y0 + fh * 2;
 	float x2 = x + 20 * W + 10;
 
-	Highlight(highlightSettings, dataDesc, file, state->basePos, state->endianness, &bcol[0], buf, sz);
+	Highlight(highlightSettings, state, dataDesc, file, state->basePos, state->endianness, &bcol[0], buf, sz);
 
 	for (size_t i = 0; i < sz; i++)
 	{
