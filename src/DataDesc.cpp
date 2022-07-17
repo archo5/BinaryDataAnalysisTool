@@ -1256,9 +1256,13 @@ void DataDescInstanceSource::Edit()
 	ui::LabeledProperty::Begin("Filter by file");
 	if (ui::imm::EditBool(filterFileEnable, nullptr))
 		refilter = true;
+
+	auto tmped = ui::StackExpandLTRLayoutElement::GetSlotTemplate();
+	tmped->DisableScaling();
+	ui::imm::EditBool(filterFileFollow, "Follow", {}, ui::imm::ButtonStateToggleSkin());
+
 	if (ui::imm::DropdownMenuList(filterFile, ui::BuildAlloc<FileOptions>(dataDesc)))
 		refilter = true;
-	ui::imm::PropEditBool("\bFollow", filterFileFollow);
 	ui::LabeledProperty::End();
 
 	if (EditCreationReason("Filter by creation reason", filterCreationReason))
@@ -1315,7 +1319,7 @@ size_t DataDescImageSource::GetNumRows()
 size_t DataDescImageSource::GetNumCols()
 {
 	size_t ncols = DDIMG_COL_HEADER_SIZE;
-	if (filterFile)
+	if (filterFileEnable && filterFile)
 		ncols--;
 	return ncols;
 }
@@ -1327,15 +1331,15 @@ std::string DataDescImageSource::GetRowName(size_t row)
 
 std::string DataDescImageSource::GetColName(size_t col)
 {
-	if (filterFile && col >= DDIMG_COL_File)
+	if (filterFileEnable && filterFile && col >= DDIMG_COL_File)
 		col++;
 	switch (col)
 	{
 	case DDIMG_COL_ID: return "ID";
 	case DDIMG_COL_User: return "User";
 	case DDIMG_COL_File: return "File";
-	case DDIMG_COL_ImgOff: return "Image Offset";
-	case DDIMG_COL_PalOff: return "Palette Offset";
+	case DDIMG_COL_ImgOff: return "Img.off.";
+	case DDIMG_COL_PalOff: return "Pal.off.";
 	case DDIMG_COL_Format: return "Format";
 	case DDIMG_COL_PalMode: return "Pal.mode";
 	case DDIMG_COL_Opaque: return "Opaque";
@@ -1347,7 +1351,7 @@ std::string DataDescImageSource::GetColName(size_t col)
 
 std::string DataDescImageSource::GetText(size_t row, size_t col)
 {
-	if (filterFile && col >= DDIMG_COL_File)
+	if (filterFileEnable && filterFile && col >= DDIMG_COL_File)
 		col++;
 	switch (col)
 	{
@@ -1385,8 +1389,18 @@ void DataDescImageSource::SetSelectionState(uintptr_t item, bool sel)
 
 void DataDescImageSource::Edit()
 {
-	if (ui::imm::PropDropdownMenuList("Filter by file", filterFile, ui::BuildAlloc<FileOptions>(dataDesc)))
+	ui::LabeledProperty::Begin("Filter by file");
+	if (ui::imm::EditBool(filterFileEnable, nullptr))
 		refilter = true;
+
+	auto tmped = ui::StackExpandLTRLayoutElement::GetSlotTemplate();
+	tmped->DisableScaling();
+	ui::imm::EditBool(filterFileFollow, "Follow", {}, ui::imm::ButtonStateToggleSkin());
+
+	if (ui::imm::DropdownMenuList(filterFile, ui::BuildAlloc<FileOptions>(dataDesc)))
+		refilter = true;
+	ui::LabeledProperty::End();
+
 	if (ui::imm::PropEditBool("Show user created only", filterUserCreated))
 		refilter = true;
 }
@@ -1401,7 +1415,7 @@ void DataDescImageSource::_Refilter()
 	for (size_t i = 0; i < dataDesc->images.size(); i++)
 	{
 		auto& I = dataDesc->images[i];
-		if (filterFile && filterFile != I.file)
+		if (filterFileEnable && filterFile && filterFile != I.file)
 			continue;
 		if (filterUserCreated && !I.userCreated)
 			continue;

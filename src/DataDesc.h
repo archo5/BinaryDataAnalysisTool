@@ -167,6 +167,8 @@ struct DataDescImageSource : ui::TableDataSource, ui::ISelectionStorage
 
 	DataDesc* dataDesc = nullptr;
 	DDFile* filterFile = nullptr;
+	bool filterFileEnable = true;
+	bool filterFileFollow = true;
 	bool filterUserCreated = false;
 };
 

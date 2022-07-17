@@ -10,6 +10,9 @@ static float vsplitImgTab2[1] = { 0.5f };
 
 void TabImages::Build()
 {
+	if (workspace->ddimgSrc.filterFileFollow && workspace->curOpenedFile < (int)workspace->openedFiles.size())
+		workspace->ddimgSrc.filterFile = workspace->openedFiles[workspace->curOpenedFile]->ddFile;
+
 	ui::Push<ui::SplitPane>().Init(ui::Direction::Horizontal, hsplitImgTab1);
 	{
 		ui::Push<ui::EdgeSliceLayoutElement>();
