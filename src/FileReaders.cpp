@@ -3,13 +3,13 @@
 #include "FileReaders.h"
 
 
-void IDataSource::GetASCIIText(char* buf, size_t bufsz, uint64_t pos)
+void IDataSource::GetASCIIText(char* buf, size_t bufsz, uint64_t pos, char fallback)
 {
 	size_t rd = Read(pos, bufsz - 1, buf);
 	buf[rd] = 0;
 	for (size_t i = 0; i < rd; i++)
 		if (buf[i] < 32 || buf[i] >= 127)
-			buf[i] = '?';
+			buf[i] = fallback;
 }
 
 void IDataSource::GetInt8Text(char* buf, size_t bufsz, uint64_t pos, bool sign)

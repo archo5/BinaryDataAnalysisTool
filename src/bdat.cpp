@@ -14,6 +14,7 @@
 #include "TableWithOffsets.h"
 #include "TabInspect.h"
 #include "TabHighlights.h"
+#include "TabFragmentSearch.h"
 #include "TabMarkers.h"
 #include "TabStructures.h"
 #include "TabImages.h"
@@ -183,6 +184,7 @@ struct MainWindow : ui::NativeMainWindow
 							{
 								tp.AddEnumTab("Inspect", SubtabType::Inspect);
 								tp.AddEnumTab("Highlights", SubtabType::Highlights);
+								tp.AddEnumTab("Search (fragments)", SubtabType::FragmentSearch);
 								tp.AddEnumTab("Markers", SubtabType::Markers);
 								tp.AddEnumTab("Structures", SubtabType::Structures);
 								tp.AddEnumTab("Images", SubtabType::Images);
@@ -201,6 +203,13 @@ struct MainWindow : ui::NativeMainWindow
 								if (workspace.curSubtab == SubtabType::Highlights)
 								{
 									auto& th = ui::Make<TabHighlights>();
+									th.of = of;
+									curTable = &th;
+								}
+
+								if (workspace.curSubtab == SubtabType::FragmentSearch)
+								{
+									auto& th = ui::Make<TabFragmentSearch>();
 									th.of = of;
 									curTable = &th;
 								}

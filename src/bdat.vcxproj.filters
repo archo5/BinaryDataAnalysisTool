@@ -23,6 +23,8 @@
     <ClCompile Include="MeshScript.cpp" />
     <ClCompile Include="MeshEditor.cpp" />
     <ClCompile Include="StructScript.cpp" />
+    <ClCompile Include="TabFragmentSearch.cpp" />
+    <ClCompile Include="Search.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -48,6 +50,8 @@
     <ClInclude Include="MeshEditor.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="StructScript.h" />
+    <ClInclude Include="TabFragmentSearch.h" />
+    <ClInclude Include="Search.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="plugins">

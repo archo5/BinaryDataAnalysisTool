@@ -4,12 +4,14 @@
 
 #include "HexViewer.h"
 #include "FileReaders.h"
+#include "Search.h"
 
 
 enum class SubtabType
 {
 	Inspect = 0,
 	Highlights = 1,
+	FragmentSearch = 5,
 	Markers = 2,
 	Structures = 3,
 	Images = 4,
@@ -24,6 +26,7 @@ struct OpenedFile
 	uint64_t fileID = 0;
 	HexViewerState hexViewerState;
 	HighlightSettings highlightSettings;
+	FragmentSearch search;
 };
 
 extern ui::MulticastDelegate<OpenedFile*> OnCurrentFileChanged;
