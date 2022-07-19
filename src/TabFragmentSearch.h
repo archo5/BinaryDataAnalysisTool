@@ -14,3 +14,10 @@ struct TabFragmentSearch : ui::Buildable, TableWithOffsets
 
 	OpenedFile* of = nullptr;
 };
+
+struct TabFileFormatSearch : ui::Buildable, TableWithOffsets
+{
+	void Build() override;
+
+	OpenedFile* of = nullptr;
+};

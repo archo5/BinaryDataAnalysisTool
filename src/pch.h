@@ -2,8 +2,6 @@
 #pragma once
 
 #pragma warning(disable:4996)
-#define NOMINMAX
-#include <winsock2.h>
 #include <vector>
 #include <algorithm>
 #include <unordered_map>

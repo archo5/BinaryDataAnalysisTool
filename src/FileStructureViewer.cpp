@@ -2,6 +2,8 @@
 #include "pch.h"
 #include "FileStructureViewer.h"
 
+#include <winsock2.h>
+
 
 uint64_t ISyncReadStream::ReadULEB()
 {
@@ -210,6 +212,16 @@ void FileStructureViewer::Build()
 	}
 }
 
+
+void FileStructureDataSource::ParseAll(const char* path)
+{
+	SocketSyncReadStream ssrs(12345);
+	HANDLE h = CreateThread(NULL, 1024 * 64, func, (void*)path, 0, NULL);
+	ssrs.Accept();
+	StructureParser sp;
+	Parse(&ssrs, sp, &root);
+	WaitForSingleObject(h, INFINITE);
+}
 
 void FileStructureDataSource::Parse(ISyncReadStream* srs, StructureParser& sp, Node* parent)
 {

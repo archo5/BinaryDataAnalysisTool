@@ -3,6 +3,9 @@
 #include "pch.h"
 #include "FileReaders.h"
 
+using SOCKET = uintptr_t;
+using DWORD = unsigned long;
+
 
 struct ISyncReadStream
 {
@@ -93,15 +96,7 @@ struct FileStructureDataSource : ui::TreeDataSource
 		::system(buf);
 		return 0;
 	}
-	void ParseAll(const char* path)
-	{
-		SocketSyncReadStream ssrs(12345);
-		HANDLE h = CreateThread(NULL, 1024 * 64, func, (void*)path, 0, NULL);
-		ssrs.Accept();
-		StructureParser sp;
-		Parse(&ssrs, sp, &root);
-		WaitForSingleObject(h, INFINITE);
-	}
+	void ParseAll(const char* path);
 	void Parse(ISyncReadStream* srs, StructureParser& sp, Node* parent);
 
 	size_t GetNumCols() override { return 3; }

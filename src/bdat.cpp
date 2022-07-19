@@ -185,6 +185,7 @@ struct MainWindow : ui::NativeMainWindow
 								tp.AddEnumTab("Inspect", SubtabType::Inspect);
 								tp.AddEnumTab("Highlights", SubtabType::Highlights);
 								tp.AddEnumTab("Search (fragments)", SubtabType::FragmentSearch);
+								tp.AddEnumTab("Search (files)", SubtabType::FileFormatSearch);
 								tp.AddEnumTab("Markers", SubtabType::Markers);
 								tp.AddEnumTab("Structures", SubtabType::Structures);
 								tp.AddEnumTab("Images", SubtabType::Images);
@@ -210,6 +211,13 @@ struct MainWindow : ui::NativeMainWindow
 								if (workspace.curSubtab == SubtabType::FragmentSearch)
 								{
 									auto& th = ui::Make<TabFragmentSearch>();
+									th.of = of;
+									curTable = &th;
+								}
+
+								if (workspace.curSubtab == SubtabType::FileFormatSearch)
+								{
+									auto& th = ui::Make<TabFileFormatSearch>();
 									th.of = of;
 									curTable = &th;
 								}
